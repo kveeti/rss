@@ -1,0 +1,10 @@
+[package]
+name = "aio"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+tracing-subscriber = { workspace = true }
+api = { path = "../api" }
+
