@@ -4,9 +4,9 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-tracing = { workspace = true }
-tokio = { workspace = true }
-serde = { workspace = true }
+tracing.workspace = true
+tokio.workspace = true
+serde.workspace = true
+feed_loader.path = "../feed_loader"
 axum = { version = "0.8.3", features = ["macros", "multipart"] }
 axum-extra = { version = "0.12.2", features = ["typed-header"] }
-feed_loader = { path = "../feed_loader" }
