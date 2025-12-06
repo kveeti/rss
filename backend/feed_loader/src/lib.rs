@@ -1,19 +1,95 @@
 use anyhow::{Context, Ok, Result};
 use chrono::{DateTime, Utc};
+use html5ever::{ParseOpts, parse_document, tendril::TendrilSink, tree_builder::TreeBuilderOpts};
+use markup5ever_rcdom::{NodeData, RcDom};
+use reqwest::StatusCode;
 use tracing::debug;
 
-pub async fn new_feed(url: &str) -> Result<Feed> {
+#[derive(Debug, serde::Serialize)]
+pub enum NewFeedResult {
+    DiscoveredMultiple(Vec<String>),
+    Feed(Feed),
+    NotFound,
+}
+
+pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
     debug!("new feed: {}", url);
 
+    let feed = fetch_feed(url).await?;
+    match feed {
+        FeedFetchResult::Feed(bytes) => Ok(NewFeedResult::Feed(parse_feed(&bytes)?)),
+        FeedFetchResult::Html(bytes) => {
+            let feed_urls = discover_feed_urls(&bytes, url)?;
+            if feed_urls.len() == 1 {
+                let feed = &fetch_feed(&feed_urls[0]).await?;
+                match feed {
+                    FeedFetchResult::Feed(bytes) => Ok(NewFeedResult::Feed(parse_feed(&bytes)?)),
+                    _ => Err(anyhow::anyhow!("expected feed, got {feed:?}")),
+                }
+            } else {
+                Ok(NewFeedResult::DiscoveredMultiple(feed_urls))
+            }
+        }
+        FeedFetchResult::NotFound => Err(anyhow::anyhow!("not found")),
+        FeedFetchResult::Unknown { status, body } => {
+            Err(anyhow::anyhow!("unknown: {status}: {body}"))
+        }
+    }
+}
+
+#[derive(Debug)]
+enum FeedFetchResult {
+    Feed(Vec<u8>),
+    Html(Vec<u8>),
+    NotFound,
+    Unknown { status: StatusCode, body: String },
+}
+
+async fn fetch_feed(url: &str) -> Result<FeedFetchResult> {
+    debug!("fetching {url}");
     let response = reqwest::get(url).await.context("error executing request")?;
-    let bytes = response.bytes().await.context("error reading response")?;
-    debug!("got {n} bytes", n = bytes.len());
+    let status = response.status();
 
-    let parsed = parse_feed(&bytes)?;
+    match status {
+        StatusCode::NOT_FOUND => return Ok(FeedFetchResult::NotFound),
+        StatusCode::OK => {
+            let headers = response.headers().clone();
 
-    debug!("parsed feed: {:?}", parsed.title);
+            let bytes = response.bytes().await.context("error reading response")?;
 
-    Ok(parsed)
+            let content_type = headers
+                .get("Content-Type")
+                .context("no content type found")?
+                .to_str()
+                .context("invalid content type")?;
+            debug!(
+                "got {n} bytes with content type {content_type}",
+                n = bytes.len()
+            );
+            if content_type.starts_with("text/html") {
+                return Ok(FeedFetchResult::Html(bytes.to_vec()));
+            }
+
+            if content_type.starts_with("text/xml")
+                || content_type.starts_with("application/rss+xml")
+                || content_type.starts_with("application/atom+xml")
+                || content_type.starts_with("application/xml")
+            {
+                return Ok(FeedFetchResult::Feed(bytes.to_vec()));
+            }
+
+            return Ok(FeedFetchResult::Unknown {
+                body: String::from_utf8_lossy(&bytes).to_string(),
+                status,
+            });
+        }
+        _ => {
+            return Ok(FeedFetchResult::Unknown {
+                body: response.text().await.context("error reading response")?,
+                status,
+            });
+        }
+    }
 }
 
 fn parse_feed(bytes: &[u8]) -> Result<Feed> {
@@ -92,6 +168,77 @@ fn parse_atom(feed: &[u8]) -> Result<Feed> {
             })
             .collect(),
     })
+}
+
+fn discover_feed_urls(mut bytes: &[u8], url: &str) -> Result<Vec<String>> {
+    let dom = parse_document(
+        RcDom::default(),
+        ParseOpts {
+            tree_builder: TreeBuilderOpts {
+                drop_doctype: true,
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    )
+    .from_utf8()
+    .read_from(&mut bytes)
+    .context("error parsing HTML")?;
+
+    let feed_links = dom
+        .document
+        .children
+        .take()
+        .iter()
+        .find(|child| match &child.data {
+            NodeData::Element { name, .. } => name.local.as_ref() == "html",
+            _ => false,
+        })
+        .ok_or_else(|| anyhow::anyhow!("no html element found"))?
+        .children
+        .take()
+        .iter()
+        .find(|child| match &child.data {
+            NodeData::Element { name, .. } => name.local.as_ref() == "head",
+            _ => false,
+        })
+        .ok_or_else(|| anyhow::anyhow!("no head element found"))?
+        .children
+        .take()
+        .iter()
+        .filter_map(|child| match &child.data {
+            NodeData::Element { name, attrs, .. } => {
+                if name.local.as_ref() == "link" {
+                    attrs
+                        .take()
+                        .iter()
+                        .find(|attr| {
+                            attr.name.local.as_ref() == "href"
+                                && (attr.value.as_ref().contains("rss")
+                                    || attr.value.as_ref().contains("atom"))
+                        })
+                        .map(|attr| attr.value.to_string())
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        })
+        .map(|href| {
+            // if href is a relative URL, make it absolute
+            if !href.starts_with("http") {
+                if url.ends_with("/") {
+                    format!("{}{}", url, href)
+                } else {
+                    format!("{}/{}", url, href)
+                }
+            } else {
+                href
+            }
+        })
+        .collect::<Vec<String>>();
+
+    Ok(feed_links)
 }
 
 #[derive(Debug, serde::Serialize)]
