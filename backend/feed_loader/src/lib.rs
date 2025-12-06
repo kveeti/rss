@@ -2,7 +2,11 @@ use anyhow::{Context, Ok, Result};
 use chrono::{DateTime, Utc};
 use html5ever::{ParseOpts, parse_document, tendril::TendrilSink, tree_builder::TreeBuilderOpts};
 use markup5ever_rcdom::{NodeData, RcDom};
+use once_cell::sync::Lazy;
+use reqwest::Client;
 use reqwest::StatusCode;
+use reqwest::redirect;
+use texting_robots::{Robot, get_robots_url};
 use tracing::debug;
 
 #[derive(Debug, serde::Serialize)]
@@ -31,6 +35,7 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
             }
         }
         FeedFetchResult::NotFound => Err(anyhow::anyhow!("not found")),
+        FeedFetchResult::NotAllowed => Err(anyhow::anyhow!("not allowed")),
         FeedFetchResult::Unknown { status, body } => {
             Err(anyhow::anyhow!("unknown: {status}: {body}"))
         }
@@ -43,11 +48,48 @@ enum FeedFetchResult {
     Html(Vec<u8>),
     NotFound,
     Unknown { status: StatusCode, body: String },
+    NotAllowed,
 }
 
+const USER_AGENT: &str = "rss reader";
+
+static CLIENT: Lazy<Client> = Lazy::new(|| {
+    Client::builder()
+        .user_agent(USER_AGENT)
+        .redirect(redirect::Policy::limited(10))
+        .build()
+        .expect("client should be valid")
+});
+
 async fn fetch_feed(url: &str) -> Result<FeedFetchResult> {
+    debug!("fetch requested for {url}");
+
+    let robots_url = get_robots_url(url).context("error getting robots url")?;
+    debug!("checking robots at {robots_url}");
+
+    let robots = CLIENT
+        .get(robots_url)
+        .send()
+        .await
+        .context("error fetching robots")?
+        .bytes()
+        .await
+        .context("error reading robots")?;
+    let robots = Robot::new(USER_AGENT, &robots).context("error parsing robots")?;
+
+    let allowed = robots.allowed(url);
+    if !allowed {
+        debug!("not allowed to fetch {url}");
+        return Ok(FeedFetchResult::NotAllowed);
+    }
+
     debug!("fetching {url}");
-    let response = reqwest::get(url).await.context("error executing request")?;
+
+    let response = CLIENT
+        .get(url)
+        .send()
+        .await
+        .context("error executing request")?;
     let status = response.status();
 
     match status {
