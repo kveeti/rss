@@ -4,7 +4,9 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitEx
 #[tokio::main]
 pub async fn main() {
     tracing_subscriber::registry()
-        .with(EnvFilter::from("aio=debug,api=debug".to_string()))
+        .with(EnvFilter::from(
+            "aio=debug,api=debug,feed_loader=debug".to_string(),
+        ))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
