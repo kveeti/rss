@@ -1,5 +1,6 @@
 use anyhow::{Context, Ok, Result};
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
+use db::{NewEntry, NewFeed};
 use html5ever::{ParseOpts, parse_document, tendril::TendrilSink, tree_builder::TreeBuilderOpts};
 use markup5ever_rcdom::{NodeData, RcDom};
 use once_cell::sync::Lazy;
@@ -8,12 +9,21 @@ use reqwest::StatusCode;
 use reqwest::redirect;
 use texting_robots::{Robot, get_robots_url};
 use tracing::debug;
+use tracing::warn;
 
 #[derive(Debug, serde::Serialize)]
 pub enum NewFeedResult {
     DiscoveredMultiple(Vec<String>),
-    Feed(Feed),
+    Feed {
+        feed: NewFeed,
+        entries: Vec<NewEntry>,
+    },
     NotFound,
+    NotAllowed,
+    Unknown {
+        status: u16,
+        body: String,
+    },
 }
 
 pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
@@ -21,13 +31,27 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
 
     let feed = fetch_feed(url).await?;
     match feed {
-        FeedFetchResult::Feed(bytes) => Ok(NewFeedResult::Feed(parse_feed(&bytes)?)),
+        FeedFetchResult::Feed(bytes) => {
+            let (title, entries) = parse_feed(&bytes)?;
+            let feed = NewFeed {
+                title,
+                url: url.to_owned(),
+            };
+            Ok(NewFeedResult::Feed { feed, entries })
+        }
         FeedFetchResult::Html(bytes) => {
             let feed_urls = discover_feed_urls(&bytes, url)?;
             if feed_urls.len() == 1 {
                 let feed = &fetch_feed(&feed_urls[0]).await?;
                 match feed {
-                    FeedFetchResult::Feed(bytes) => Ok(NewFeedResult::Feed(parse_feed(&bytes)?)),
+                    FeedFetchResult::Feed(bytes) => {
+                        let (title, entries) = parse_feed(&bytes)?;
+                        let feed = NewFeed {
+                            title,
+                            url: url.to_owned(),
+                        };
+                        Ok(NewFeedResult::Feed { feed, entries })
+                    }
                     _ => Err(anyhow::anyhow!("expected feed, got {feed:?}")),
                 }
             } else {
@@ -47,7 +71,7 @@ enum FeedFetchResult {
     Feed(Vec<u8>),
     Html(Vec<u8>),
     NotFound,
-    Unknown { status: StatusCode, body: String },
+    Unknown { status: u16, body: String },
     NotAllowed,
 }
 
@@ -122,94 +146,115 @@ async fn fetch_feed(url: &str) -> Result<FeedFetchResult> {
 
             return Ok(FeedFetchResult::Unknown {
                 body: String::from_utf8_lossy(&bytes).to_string(),
-                status,
+                status: status.as_u16(),
             });
         }
         _ => {
             return Ok(FeedFetchResult::Unknown {
                 body: response.text().await.context("error reading response")?,
-                status,
+                status: status.as_u16(),
             });
         }
     }
 }
 
-fn parse_feed(bytes: &[u8]) -> Result<Feed> {
+fn parse_feed(bytes: &[u8]) -> Result<(String, Vec<NewEntry>)> {
     debug!("parsing feed as RSS");
     let feed = parse_rss(bytes).or_else(|_| {
         debug!("failed to parse as RSS, parsing as Atom");
         parse_atom(bytes).map_err(|_| anyhow::anyhow!("failed to parse as Atom"))
     })?;
     debug!("parsed feed");
-    Ok(feed)
+
+    // not using skipped for anything yet
+    Ok((feed.0, feed.1))
 }
 
-fn parse_rss(feed: &[u8]) -> Result<Feed> {
-    let parsed = rss::Channel::read_from(feed)?;
-
-    Ok(Feed {
-        title: parsed.title.to_string(),
-        description: parsed.description.to_string(),
-        url: parsed.link.to_string(),
-        entries: parsed
+fn parse_rss(bytes: &[u8]) -> Result<(String, Vec<NewEntry>, usize)> {
+    let parsed = rss::Channel::read_from(bytes)?;
+    let (entries, skipped) =
+        parsed
             .items
             .iter()
-            .map(|item| Entry {
-                title: item
-                    .title
-                    .as_ref()
-                    .map(|title| title.to_string())
-                    .unwrap_or_default(),
-                url: item
-                    .link
-                    .as_ref()
-                    .map(|link| link.to_string())
-                    .unwrap_or_default(),
-                published_at: item
-                    .pub_date
-                    .as_ref()
-                    .map(|date| DateTime::parse_from_rfc2822(date).unwrap().into())
-                    .unwrap_or_default(),
-                comments_url: item.comments.as_ref().map(|comments| comments.to_string()),
-            })
-            .collect(),
-    })
+            .fold((Vec::new(), 0usize), |(mut entries, mut skipped), item| {
+                let title = match &item.title {
+                    Some(title) => {
+                        if title.trim().is_empty() {
+                            warn!("title is empty for item {item:?}, skipping...");
+                            skipped += 1;
+                            return (entries, skipped);
+                        }
+                        title.to_string()
+                    }
+                    None => {
+                        warn!("no title found for item {item:?}, skipping...");
+                        skipped += 1;
+                        return (entries, skipped);
+                    }
+                };
+
+                let url = match item.link.to_owned() {
+                    Some(url) => url,
+                    None => {
+                        warn!("no link found for item {item:?}, skipping...");
+                        skipped += 1;
+                        return (entries, skipped);
+                    }
+                };
+
+                entries.push(NewEntry {
+                    title,
+                    url,
+                    published_at: item
+                        .pub_date
+                        .to_owned()
+                        .map(|date| DateTime::parse_from_rfc2822(&date).unwrap().into()),
+                    comments_url: item
+                        .comments
+                        .to_owned()
+                        .map(|comments| comments.to_string()),
+                });
+
+                (entries, skipped)
+            });
+
+    Ok((parsed.title.to_string(), entries, skipped))
 }
 
-fn parse_atom(feed: &[u8]) -> Result<Feed> {
-    let parsed = atom_syndication::Feed::read_from(feed)?;
+fn parse_atom(bytes: &[u8]) -> Result<(String, Vec<NewEntry>, usize)> {
+    let parsed = atom_syndication::Feed::read_from(bytes)?;
 
-    Ok(Feed {
-        title: parsed.title.to_string(),
-        description: parsed
-            .subtitle
-            .map(|subtitle| subtitle.value)
-            .unwrap_or_default(),
-        url: parsed
-            .links
-            .iter()
-            .find(|link| link.rel == "self")
-            .map(|link| link.href.clone())
-            .ok_or_else(|| anyhow::anyhow!("no self link found"))?,
-        entries: parsed
+    let (entries, skipped) =
+        parsed
             .entries
             .iter()
-            .map(|entry| Entry {
-                title: entry.title.to_string(),
-                url: entry
-                    .links
-                    .first()
-                    .map(|link| link.href.clone())
-                    .ok_or_else(|| anyhow::anyhow!("no link found"))
-                    .unwrap_or_default(),
-                published_at: entry
-                    .published
-                    .map(|published| published.to_utc())
-                    .unwrap_or_default(),
-                comments_url: None,
-            })
-            .collect(),
-    })
+            .fold((Vec::new(), 0usize), |(mut entries, mut skipped), entry| {
+                let title = entry.title.to_owned().value.to_string();
+                if title.trim().is_empty() {
+                    warn!("title is empty for entry {entry:?}, skipping...");
+                    skipped += 1;
+                    return (entries, skipped);
+                }
+
+                let url = match entry.links.first().map(|link| link.href.clone()) {
+                    Some(url) => url,
+                    None => {
+                        warn!("no link found for entry {entry:?}, skipping...");
+                        skipped += 1;
+                        return (entries, skipped);
+                    }
+                };
+
+                entries.push(NewEntry {
+                    title,
+                    url,
+                    published_at: entry.published.map(|published| published.to_utc()),
+                    comments_url: None,
+                });
+                (entries, skipped)
+            });
+
+    Ok((parsed.title.to_string(), entries, skipped))
 }
 
 fn discover_feed_urls(mut bytes: &[u8], url: &str) -> Result<Vec<String>> {
@@ -281,20 +326,4 @@ fn discover_feed_urls(mut bytes: &[u8], url: &str) -> Result<Vec<String>> {
         .collect::<Vec<String>>();
 
     Ok(feed_links)
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct Feed {
-    pub title: String,
-    pub description: String,
-    pub url: String,
-    pub entries: Vec<Entry>,
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct Entry {
-    pub title: String,
-    pub url: String,
-    pub published_at: DateTime<Utc>,
-    pub comments_url: Option<String>,
 }

@@ -7,3 +7,4 @@ edition.workspace = true
 tokio.workspace = true
 tracing-subscriber.workspace = true
 api.path = "../api"
+db.path = "../db"
