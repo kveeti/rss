@@ -2,12 +2,14 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use anyhow::{Context, Ok, Result};
+use base64::Engine;
 use chrono::DateTime;
 use db::{NewEntry, NewFeed, NewIcon};
 use html5ever::{ParseOpts, parse_document, tendril::TendrilSink, tree_builder::TreeBuilderOpts};
 use markup5ever_rcdom::Node;
 use markup5ever_rcdom::{NodeData, RcDom};
 use once_cell::sync::Lazy;
+use percent_encoding::percent_decode_str;
 use reqwest::Client;
 use reqwest::StatusCode;
 use reqwest::redirect;
@@ -363,7 +365,7 @@ fn discover_feed_and_favicon_url(
     debug!("found {} feed links", feed_links.len());
 
     let favicon_url = get_best_favicon_url(&head_children, url)?;
-    debug!("favicon url {favicon_url:?}");
+    debug!("found favicon url {favicon_url:?}");
 
     Ok((feed_links, favicon_url))
 }
@@ -412,14 +414,43 @@ fn discover_favicon_url_from_html(bytes: &[u8], url: &str) -> Result<Option<Stri
 
 async fn get_favicon(url: &str) -> Result<Option<NewIcon>> {
     if url.starts_with("data:") {
-        let content_type = url.split(",").nth(0).unwrap().split(":").nth(1).unwrap();
-        debug!("data url with content type {content_type}");
-        let text = url.split(",").nth(1).unwrap();
-        debug!("discovered icon as data url with content type {content_type} and text {text}");
-        let bytes = text.as_bytes().to_vec();
+        let parts = url.split(",").collect::<Vec<&str>>();
+        if parts.len() < 2 {
+            warn!("invalid data url {url}");
+            return Ok(None);
+        }
+
+        let header = parts[0];
+        let content_type = header.split(':').nth(1).and_then(|mt| mt.split(';').next());
+
+        let content_type = match content_type {
+            Some(ct) => ct,
+            None => {
+                warn!("invalid data url, no content type {url}");
+                return Ok(None);
+            }
+        };
+
+        let is_base64 = header.contains("base64");
+
+        debug!("discovered icon as data url with content type {content_type:?}");
+
+        let content = parts[1];
+        let content = if is_base64 {
+            base64::engine::general_purpose::STANDARD
+                .decode(content)
+                .context("error decoding data url as base64")?
+        } else {
+            percent_decode_str(content)
+                .decode_utf8()
+                .context("error decoding data url with utf8 percent encoding")?
+                .as_bytes()
+                .to_vec()
+        };
+
         return Ok(Some(NewIcon {
-            hash: hash_bytes(&bytes),
-            data: bytes,
+            hash: hash_bytes(&content),
+            data: content,
             content_type: content_type.to_string(),
         }));
     } else if url.starts_with("http") {
@@ -476,8 +507,6 @@ fn get_best_favicon_url(head_children: &Vec<Rc<Node>>, url: &str) -> Result<Opti
                             .iter()
                             .find(|attr| attr.name.local.as_ref() == "href")
                             .map(|attr| attr.value.to_string());
-
-                        debug!("rel is icon, href {href:?}");
 
                         href
                     } else {
