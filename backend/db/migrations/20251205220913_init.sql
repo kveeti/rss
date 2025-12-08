@@ -1,11 +1,12 @@
 create table feeds (
     id varchar(26) primary key not null,
     title text not null,
-    url text not null,
+    feed_url text not null,
+    site_url text,
     created_at timestamptz not null default now(),
     updated_at timestamptz,
 
-    unique(url)
+    unique(feed_url)
 );
 
 create table icons (

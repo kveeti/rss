@@ -21,11 +21,12 @@ impl Data {
 
         query!(
             r#"
-            insert into feeds (id, title, url) values ($1, $2, $3)
+            insert into feeds (id, title, feed_url, site_url) values ($1, $2, $3, $4)
             "#,
             feed_id,
             feed.title,
-            feed.url
+            feed.feed_url,
+            feed.site_url
         )
         .execute(&mut *tx)
         .await
@@ -109,7 +110,7 @@ impl Data {
     pub async fn get_feed_by_url(&self, url: &str) -> Result<Option<Feed>, sqlx::Error> {
         let feed = query_as!(
             Feed,
-            r#"select id, title, url, created_at, updated_at from feeds where url = $1"#,
+            r#"select id, title, feed_url, site_url, created_at, updated_at from feeds where feed_url = $1"#,
             url
         )
         .fetch_optional(&self.pg_pool)
@@ -127,7 +128,8 @@ impl Data {
             select 
                 f.id,
                 f.title,
-                f.url,
+                f.feed_url,
+                f.site_url,
                 f.created_at,
                 count(e.id) as "entry_count!",
                 count(e.id) filter (where e.read_at is null) as "unread_entry_count!"
@@ -162,7 +164,8 @@ pub struct Entry {
 pub struct Feed {
     pub id: String,
     pub title: String,
-    pub url: String,
+    pub feed_url: String,
+    pub site_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -178,14 +181,16 @@ pub struct NewEntry {
 #[derive(Debug, serde::Serialize)]
 pub struct NewFeed {
     pub title: String,
-    pub url: String,
+    pub site_url: Option<String>,
+    pub feed_url: String,
 }
 
 #[derive(Debug, serde::Serialize)]
 pub struct FeedWithEntryCounts {
     pub id: String,
     pub title: String,
-    pub url: String,
+    pub feed_url: String,
+    pub site_url: Option<String>,
     pub created_at: DateTime<Utc>,
     pub entry_count: i64,
     pub unread_entry_count: i64,

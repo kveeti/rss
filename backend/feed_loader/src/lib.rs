@@ -68,10 +68,11 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
     match feed {
         FeedFetchResult::Feed { bytes, location } => {
             let icon = discover_favicon(&location.origin().ascii_serialization()).await?;
-            let (title, entries) = parse_feed(&bytes)?;
+            let (parsed_feed, entries) = parse_feed(&bytes, &url)?;
             let feed = NewFeed {
-                title,
-                url: url.to_owned(),
+                title: parsed_feed.title,
+                site_url: parsed_feed.site_url,
+                feed_url: url.to_owned(),
             };
             Ok(NewFeedResult::Feed {
                 feed,
@@ -101,10 +102,11 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
                             None
                         };
 
-                        let (title, entries) = parse_feed(&bytes)?;
+                        let (parsed_feed, entries) = parse_feed(&bytes, &feed_url)?;
                         let feed = NewFeed {
-                            title,
-                            url: feed_url.to_owned(),
+                            title: parsed_feed.title,
+                            site_url: parsed_feed.site_url,
+                            feed_url: feed_url.to_owned(),
                         };
                         Ok(NewFeedResult::Feed {
                             feed,
@@ -210,11 +212,11 @@ async fn fetch_feed(url: &str) -> Result<FeedFetchResult> {
     }
 }
 
-fn parse_feed(bytes: &[u8]) -> Result<(String, Vec<NewEntry>)> {
+fn parse_feed(bytes: &[u8], feed_url: &str) -> Result<(ParsedFeed, Vec<NewEntry>)> {
     debug!("parsing feed as RSS");
     let feed = parse_rss(bytes).or_else(|_| {
         debug!("failed to parse as RSS, parsing as Atom");
-        parse_atom(bytes).map_err(|_| anyhow::anyhow!("failed to parse as Atom"))
+        parse_atom(bytes, feed_url).map_err(|_| anyhow::anyhow!("failed to parse as Atom"))
     })?;
     debug!("parsed feed");
 
@@ -222,7 +224,12 @@ fn parse_feed(bytes: &[u8]) -> Result<(String, Vec<NewEntry>)> {
     Ok((feed.0, feed.1))
 }
 
-fn parse_rss(bytes: &[u8]) -> Result<(String, Vec<NewEntry>, usize)> {
+struct ParsedFeed {
+    title: String,
+    site_url: Option<String>,
+}
+
+fn parse_rss(bytes: &[u8]) -> Result<(ParsedFeed, Vec<NewEntry>, usize)> {
     let parsed = rss::Channel::read_from(bytes)?;
     let (entries, skipped) =
         parsed
@@ -270,10 +277,17 @@ fn parse_rss(bytes: &[u8]) -> Result<(String, Vec<NewEntry>, usize)> {
                 (entries, skipped)
             });
 
-    Ok((parsed.title.to_string(), entries, skipped))
+    Ok((
+        ParsedFeed {
+            title: parsed.title.to_string(),
+            site_url: Some(parsed.link.to_owned()),
+        },
+        entries,
+        skipped,
+    ))
 }
 
-fn parse_atom(bytes: &[u8]) -> Result<(String, Vec<NewEntry>, usize)> {
+fn parse_atom(bytes: &[u8], feed_url: &str) -> Result<(ParsedFeed, Vec<NewEntry>, usize)> {
     let parsed = atom_syndication::Feed::read_from(bytes)?;
 
     let (entries, skipped) =
@@ -306,7 +320,21 @@ fn parse_atom(bytes: &[u8]) -> Result<(String, Vec<NewEntry>, usize)> {
                 (entries, skipped)
             });
 
-    Ok((parsed.title.to_string(), entries, skipped))
+    let site_url = parsed
+        .links
+        .iter()
+        .find(|link| link.rel == "alternate")
+        .or(parsed.links.iter().find(|link| link.href != feed_url))
+        .map(|link| link.href.to_owned());
+
+    Ok((
+        ParsedFeed {
+            title: parsed.title.to_string(),
+            site_url,
+        },
+        entries,
+        skipped,
+    ))
 }
 
 fn discover_feed_and_favicon_url(
