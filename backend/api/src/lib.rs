@@ -17,7 +17,7 @@ pub async fn start_api(data: Data) {
     let state = AppState { data };
 
     let routes = Router::new()
-        .route("/", get(hello))
+        .route("/health", get(health))
         .route(
             "/feeds",
             post(handlers::feeds::new_feed).get(handlers::feeds::query_feeds),
@@ -31,6 +31,6 @@ pub async fn start_api(data: Data) {
     axum::serve(listener, routes).await.unwrap();
 }
 
-async fn hello() -> &'static str {
-    "Hello, world!"
+async fn health() -> &'static str {
+    "OK"
 }
