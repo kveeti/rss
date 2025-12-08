@@ -8,6 +8,24 @@ create table feeds (
     unique(url)
 );
 
+create table icons (
+    id varchar(26) primary key not null,
+    hash text not null,
+    data bytea not null,
+    content_type text not null,
+    created_at timestamptz not null default now(),
+
+    unique(hash)
+);
+
+create table feeds_icons (
+    feed_id varchar(26) not null,
+    icon_id varchar(26) not null,
+    created_at timestamptz not null default now(),
+
+    primary key (feed_id, icon_id)
+);
+
 create table entries (
     id varchar(26) primary key not null,
     feed_id varchar(26) not null,

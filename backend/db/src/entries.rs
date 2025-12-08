@@ -2,13 +2,14 @@ use anyhow::Context;
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder, query, query_as};
 
-use crate::{Data, create_id};
+use crate::{Data, create_id, icons::NewIcon};
 
 impl Data {
-    pub async fn add_feed_and_entries(
+    pub async fn add_feed_and_entries_and_icon(
         &self,
         feed: NewFeed,
         entries: Vec<NewEntry>,
+        icon: Option<NewIcon>,
     ) -> anyhow::Result<()> {
         let mut tx = self
             .pg_pool
@@ -49,6 +50,34 @@ impl Data {
             .await
             .context("error inserting entries")?;
 
+        if let Some(icon) = icon {
+            let icon_id = create_id();
+            query!(
+                r#"
+                insert into icons (id, hash, data, content_type) values ($1, $2, $3, $4)
+                on conflict (hash) do nothing
+                "#,
+                icon_id,
+                icon.hash,
+                icon.data,
+                icon.content_type
+            )
+            .execute(&mut *tx)
+            .await
+            .context("error inserting icon")?;
+
+            query!(
+                r#"
+                insert into feeds_icons (feed_id, icon_id) values ($1, $2)
+                "#,
+                feed_id,
+                icon_id
+            )
+            .execute(&mut *tx)
+            .await
+            .context("error inserting feed icon")?;
+        }
+
         tx.commit().await.context("error committing transaction")?;
 
         Ok(())
@@ -88,6 +117,31 @@ impl Data {
 
         Ok(feed)
     }
+
+    pub async fn get_feeds_with_entry_counts(
+        &self,
+    ) -> Result<Vec<FeedWithEntryCounts>, sqlx::Error> {
+        let rows = query_as!(
+            FeedWithEntryCounts,
+            r#"
+            select 
+                f.id,
+                f.title,
+                f.url,
+                f.created_at,
+                count(e.id) as "entry_count!",
+                count(e.id) filter (where e.read_at is null) as "unread_entry_count!"
+            from feeds f
+            left join entries e on e.feed_id = f.id
+            group by f.id
+            order by f.created_at desc
+            "#
+        )
+        .fetch_all(&self.pg_pool)
+        .await?;
+
+        Ok(rows)
+    }
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -125,4 +179,14 @@ pub struct NewEntry {
 pub struct NewFeed {
     pub title: String,
     pub url: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct FeedWithEntryCounts {
+    pub id: String,
+    pub title: String,
+    pub url: String,
+    pub created_at: DateTime<Utc>,
+    pub entry_count: i64,
+    pub unread_entry_count: i64,
 }

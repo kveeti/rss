@@ -1,8 +1,10 @@
 use anyhow::Context;
 use axum::{
     Json, Router,
-    extract::{Query, State},
-    http::StatusCode,
+    body::Body,
+    debug_handler,
+    extract::{Path, Query, State},
+    http::{HeaderMap, HeaderValue, StatusCode, header},
     response::IntoResponse,
     routing::{get, post},
 };
@@ -25,8 +27,8 @@ pub async fn start_api(data: Data) {
 
     let routes = Router::new()
         .route("/", get(hello))
-        .route("/load_feed", get(load_feed))
-        .route("/feeds", post(add_feed))
+        .route("/feeds", post(add_feed).get(get_feeds))
+        .route("/feeds/{id}/icon", get(get_feed_icon))
         .with_state(state);
 
     let listener = TcpListener::bind("0.0.0.0:8000").await.unwrap();
@@ -40,21 +42,11 @@ async fn hello() -> &'static str {
 }
 
 #[derive(Debug, serde::Deserialize)]
-struct LoadFeedQuery {
-    url: String,
-}
-
-async fn load_feed(Query(query): Query<LoadFeedQuery>) -> impl IntoResponse {
-    let feed = feed_loader::new_feed(&query.url).await.unwrap();
-
-    (StatusCode::OK, Json(feed)).into_response()
-}
-
-#[derive(Debug, serde::Deserialize)]
 struct AddFeedQuery {
     url: String,
 }
 
+#[debug_handler]
 async fn add_feed(
     State(state): State<AppState>,
     Query(query): Query<AddFeedQuery>,
@@ -80,10 +72,14 @@ async fn add_feed(
         )
             .into_response(),
 
-        NewFeedResult::Feed { feed, entries } => {
+        NewFeedResult::Feed {
+            feed,
+            entries,
+            icon,
+        } => {
             state
                 .data
-                .add_feed_and_entries(feed, entries)
+                .add_feed_and_entries_and_icon(feed, entries, icon)
                 .await
                 .context("error adding feed and entries")?;
 
@@ -110,4 +106,43 @@ async fn add_feed(
     };
 
     Ok(response)
+}
+
+async fn get_feeds(State(state): State<AppState>) -> Result<impl IntoResponse, ApiError> {
+    let feeds = state
+        .data
+        .get_feeds_with_entry_counts()
+        .await
+        .context("error getting feeds")?;
+
+    Ok((StatusCode::OK, Json(feeds)).into_response())
+}
+
+async fn get_feed_icon(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<impl IntoResponse, ApiError> {
+    let icon = state
+        .data
+        .get_icon_by_feed_id(&id)
+        .await
+        .context("error getting feed")?;
+
+    if let Some(icon) = icon {
+        let content_type = icon.content_type.parse::<HeaderValue>().unwrap();
+        let data = if content_type == "image/svg+xml" {
+            Body::from(String::from_utf8_lossy(&icon.data).to_string())
+        } else {
+            Body::from(icon.data)
+        };
+        let mut headers = HeaderMap::new();
+        headers.append(header::CONTENT_TYPE, content_type);
+        return Ok((headers, data).into_response());
+    }
+
+    return Ok((
+        StatusCode::NOT_FOUND,
+        Json(json!({ "status": "not_found" })),
+    )
+        .into_response());
 }

@@ -569,8 +569,10 @@ dependencies = [
  "reqwest",
  "rss",
  "serde",
+ "sha2",
  "texting_robots",
  "tracing",
+ "url",
 ]
 
 [[package]]
