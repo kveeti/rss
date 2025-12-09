@@ -5,6 +5,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
+use db::InsertFeedError;
 use feed_loader::NewFeedResult;
 use serde_json::json;
 
@@ -23,7 +24,7 @@ pub async fn new_feed(
     if existing_feed.is_some() {
         return Ok((
             StatusCode::CONFLICT,
-            Json(json!({ "status": "feed_already_saved" })),
+            Json(json!({ "status": "duplicate_feed" })),
         )
             .into_response());
     }
@@ -45,13 +46,21 @@ pub async fn new_feed(
             entries,
             icon,
         } => {
-            state
+            match state
                 .data
                 .add_feed_and_entries_and_icon(feed, entries, icon)
                 .await
-                .context("error adding feed and entries")?;
-
-            (StatusCode::OK, Json(json!({ "status": "feed_added" }))).into_response()
+            {
+                Ok(_) => (StatusCode::OK, Json(json!({ "status": "feed_added" }))).into_response(),
+                Err(InsertFeedError::DuplicateFeed) => (
+                    StatusCode::CONFLICT,
+                    Json(json!({ "status": "duplicate_feed" })),
+                )
+                    .into_response(),
+                Err(e) => {
+                    return Err(anyhow::anyhow!(e).into());
+                }
+            }
         }
 
         NewFeedResult::NotFound => (

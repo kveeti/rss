@@ -4,13 +4,22 @@ use sqlx::{Postgres, QueryBuilder, query, query_as};
 
 use crate::{Data, create_id, icons::NewIcon};
 
+#[derive(Debug, thiserror::Error)]
+pub enum InsertFeedError {
+    #[error("duplicate feed")]
+    DuplicateFeed,
+
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+}
+
 impl Data {
     pub async fn add_feed_and_entries_and_icon(
         &self,
         feed: NewFeed,
         entries: Vec<NewEntry>,
         icon: Option<NewIcon>,
-    ) -> anyhow::Result<()> {
+    ) -> Result<(), InsertFeedError> {
         let mut tx = self
             .pg_pool
             .begin()
@@ -19,7 +28,7 @@ impl Data {
 
         let feed_id = create_id();
 
-        query!(
+        let res = query!(
             r#"
             insert into feeds (id, title, feed_url, site_url) values ($1, $2, $3, $4)
             "#,
@@ -29,8 +38,20 @@ impl Data {
             feed.site_url
         )
         .execute(&mut *tx)
-        .await
-        .context("error inserting feed")?;
+        .await;
+
+        match res {
+            Ok(_) => {}
+            Err(e) => {
+                if let Some(e) = e.as_database_error() {
+                    if e.code() == Some("23505".into()) {
+                        return Err(InsertFeedError::DuplicateFeed);
+                    }
+                } else {
+                    return Err(InsertFeedError::UnexpectedError(e.into()));
+                }
+            }
+        }
 
         let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
             "insert into entries (id, feed_id, title, url, comments_url, published_at)",
