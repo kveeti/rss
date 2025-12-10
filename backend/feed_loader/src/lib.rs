@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use anyhow::{Context, Ok, Result};
+use anyhow::Context;
 use base64::Engine;
 use chrono::DateTime;
 use db::{NewEntry, NewFeed, NewIcon};
@@ -35,7 +35,31 @@ pub enum NewFeedResult {
     },
 }
 
-pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
+#[derive(Debug, thiserror::Error)]
+pub enum NewFeedError {
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
+
+    #[error("robots url determination error")]
+    RobotsDeterminingUrlError,
+
+    #[error("robots fetch error")]
+    RobotsFetchError,
+
+    #[error("robots parsing error")]
+    RobotsParsingError,
+
+    #[error("unexpected response, expected feed")]
+    UnexpectedFeed,
+
+    #[error("error fetching feed")]
+    FetchFeedError,
+
+    #[error("error parsing feed")]
+    ParseFeedError,
+}
+
+pub async fn new_feed(url: &str) -> Result<NewFeedResult, NewFeedError> {
     debug!("new feed: {}", url);
 
     let url = if !url.starts_with("http") {
@@ -45,18 +69,18 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
         url
     };
 
-    let robots_url = get_robots_url(url).context("error getting robots url")?;
+    let robots_url = get_robots_url(url).map_err(|_| NewFeedError::RobotsDeterminingUrlError)?;
     debug!("checking robots at {robots_url}");
 
     let robots = CLIENT
         .get(robots_url)
         .send()
         .await
-        .context("error fetching robots")?
+        .map_err(|_| NewFeedError::RobotsFetchError)?
         .bytes()
         .await
-        .context("error reading robots")?;
-    let robots = Robot::new(USER_AGENT, &robots).context("error parsing robots")?;
+        .map_err(|_| NewFeedError::RobotsParsingError)?;
+    let robots = Robot::new(USER_AGENT, &robots).map_err(|_| NewFeedError::RobotsParsingError)?;
 
     let allowed = robots.allowed(url);
     if !allowed {
@@ -64,11 +88,11 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
         return Ok(NewFeedResult::NotAllowed);
     }
 
-    let feed = fetch_feed(url).await?;
+    let feed = fetch_feed(url).await.context("error fetching feed")?;
     match feed {
         FeedFetchResult::Feed { bytes, location } => {
-            let icon = discover_favicon(&location.origin().ascii_serialization()).await?;
-            let (parsed_feed, entries) = parse_feed(&bytes, &url)?;
+            let (parsed_feed, entries) =
+                parse_feed(&bytes, &url).map_err(|_| NewFeedError::ParseFeedError)?;
             let feed = NewFeed {
                 title: parsed_feed.title,
                 site_url: parsed_feed.site_url,
@@ -77,15 +101,22 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
             Ok(NewFeedResult::Feed {
                 feed,
                 entries,
-                icon,
+                icon: discover_favicon(&location.origin().ascii_serialization())
+                    .await
+                    .ok()
+                    .flatten(),
             })
         }
         FeedFetchResult::Html { bytes, location } => {
             let (feed_urls, maybe_favicon_url) =
-                discover_feed_and_favicon_url(&bytes, &url_to_string(&location))?;
+                discover_feed_and_favicon_url(&bytes, &url_to_string(&location))
+                    .context("error discovering feed and favicon from html")?;
+
+            if feed_urls.is_empty() {}
+
             if feed_urls.len() == 1 {
                 let feed_url = &feed_urls[0];
-                let feed = &fetch_feed(feed_url).await?;
+                let feed = &fetch_feed(feed_url).await.context("error fetching feed")?;
                 match feed {
                     FeedFetchResult::Feed {
                         bytes,
@@ -93,16 +124,17 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
                     } => {
                         let new_origin = new_location.origin().ascii_serialization();
                         let icon = if let Some(favicon_url) = maybe_favicon_url {
-                            get_favicon(&favicon_url).await?
+                            get_favicon(&favicon_url).await.ok().flatten()
                         } else if location.origin().ascii_serialization() != new_origin {
                             // if we didn't find a favicon and didn't visit origin yet,
                             // lets see if it has a favicon
-                            discover_favicon(&new_origin).await?
+                            discover_favicon(&new_origin).await.ok().flatten()
                         } else {
                             None
                         };
 
-                        let (parsed_feed, entries) = parse_feed(&bytes, &feed_url)?;
+                        let (parsed_feed, entries) = parse_feed(&bytes, &feed_url)
+                            .map_err(|_| NewFeedError::ParseFeedError)?;
                         let feed = NewFeed {
                             title: parsed_feed.title,
                             site_url: parsed_feed.site_url,
@@ -114,16 +146,16 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult> {
                             icon,
                         })
                     }
-                    _ => Err(anyhow::anyhow!("expected feed, got {feed:?}")),
+                    _ => Err(NewFeedError::UnexpectedFeed),
                 }
             } else {
                 Ok(NewFeedResult::DiscoveredMultiple(feed_urls))
             }
         }
-        FeedFetchResult::NotFound => Err(anyhow::anyhow!("not found")),
-        FeedFetchResult::Unknown { status, body } => {
-            Err(anyhow::anyhow!("unknown: {status}: {body}"))
-        }
+        FeedFetchResult::NotFound => Ok(NewFeedResult::NotFound),
+        FeedFetchResult::Unknown { status, body } => Err(NewFeedError::UnexpectedError(
+            anyhow::anyhow!("unknown error fetching feed: {status}: {body}"),
+        )),
     }
 }
 
@@ -153,7 +185,7 @@ static CLIENT: Lazy<Client> = Lazy::new(|| {
         .expect("client should be valid")
 });
 
-async fn fetch_feed(url: &str) -> Result<FeedFetchResult> {
+async fn fetch_feed(url: &str) -> anyhow::Result<FeedFetchResult> {
     debug!("fetch requested for {url}");
 
     let response = CLIENT
@@ -212,7 +244,7 @@ async fn fetch_feed(url: &str) -> Result<FeedFetchResult> {
     }
 }
 
-fn parse_feed(bytes: &[u8], feed_url: &str) -> Result<(ParsedFeed, Vec<NewEntry>)> {
+fn parse_feed(bytes: &[u8], feed_url: &str) -> anyhow::Result<(ParsedFeed, Vec<NewEntry>)> {
     debug!("parsing feed as RSS");
     let feed = parse_rss(bytes).or_else(|_| {
         debug!("failed to parse as RSS, parsing as Atom");
@@ -229,7 +261,7 @@ struct ParsedFeed {
     site_url: Option<String>,
 }
 
-fn parse_rss(bytes: &[u8]) -> Result<(ParsedFeed, Vec<NewEntry>, usize)> {
+fn parse_rss(bytes: &[u8]) -> anyhow::Result<(ParsedFeed, Vec<NewEntry>, usize)> {
     let parsed = rss::Channel::read_from(bytes)?;
     let (entries, skipped) =
         parsed
@@ -287,7 +319,7 @@ fn parse_rss(bytes: &[u8]) -> Result<(ParsedFeed, Vec<NewEntry>, usize)> {
     ))
 }
 
-fn parse_atom(bytes: &[u8], feed_url: &str) -> Result<(ParsedFeed, Vec<NewEntry>, usize)> {
+fn parse_atom(bytes: &[u8], feed_url: &str) -> anyhow::Result<(ParsedFeed, Vec<NewEntry>, usize)> {
     let parsed = atom_syndication::Feed::read_from(bytes)?;
 
     let (entries, skipped) =
@@ -340,7 +372,7 @@ fn parse_atom(bytes: &[u8], feed_url: &str) -> Result<(ParsedFeed, Vec<NewEntry>
 fn discover_feed_and_favicon_url(
     mut bytes: &[u8],
     url: &str,
-) -> Result<(Vec<String>, Option<String>)> {
+) -> anyhow::Result<(Vec<String>, Option<String>)> {
     let dom = parse_document(
         RcDom::default(),
         ParseOpts {
@@ -392,13 +424,13 @@ fn discover_feed_and_favicon_url(
         .collect::<Vec<String>>();
     debug!("found {} feed links", feed_links.len());
 
-    let favicon_url = get_best_favicon_url(&head_children, url)?;
+    let favicon_url = get_best_favicon_url(&head_children, url);
     debug!("found favicon url {favicon_url:?}");
 
     Ok((feed_links, favicon_url))
 }
 
-async fn discover_favicon(url: &str) -> Result<Option<NewIcon>> {
+async fn discover_favicon(url: &str) -> anyhow::Result<Option<NewIcon>> {
     debug!("discovering favicon from {url}");
 
     let bytes = CLIENT
@@ -420,7 +452,7 @@ async fn discover_favicon(url: &str) -> Result<Option<NewIcon>> {
 
 // must be its own non-async function
 // because "`Rc<markup5ever_rcdom::Node>` cannot be sent between threads safely"
-fn discover_favicon_url_from_html(bytes: &[u8], url: &str) -> Result<Option<String>> {
+fn discover_favicon_url_from_html(bytes: &[u8], url: &str) -> anyhow::Result<Option<String>> {
     let dom = parse_document(
         RcDom::default(),
         ParseOpts {
@@ -435,12 +467,12 @@ fn discover_favicon_url_from_html(bytes: &[u8], url: &str) -> Result<Option<Stri
     .read_from(&mut &bytes[..])
     .context("error parsing HTML")?;
 
-    let url = get_best_favicon_url(&get_head_children(&dom)?.into_inner(), url)?;
+    let url = get_best_favicon_url(&get_head_children(&dom)?.into_inner(), url);
 
     Ok(url)
 }
 
-async fn get_favicon(url: &str) -> Result<Option<NewIcon>> {
+async fn get_favicon(url: &str) -> anyhow::Result<Option<NewIcon>> {
     if url.starts_with("data:") {
         let parts = url.split(",").collect::<Vec<&str>>();
         if parts.len() < 2 {
@@ -490,7 +522,7 @@ async fn get_favicon(url: &str) -> Result<Option<NewIcon>> {
     Ok(None)
 }
 
-fn get_head_children(dom: &RcDom) -> Result<RefCell<Vec<Rc<Node>>>> {
+fn get_head_children(dom: &RcDom) -> anyhow::Result<RefCell<Vec<Rc<Node>>>> {
     Ok(dom
         .document
         .children
@@ -515,8 +547,8 @@ fn get_head_children(dom: &RcDom) -> Result<RefCell<Vec<Rc<Node>>>> {
 
 const ICON_RELS: &[&str] = &["icon", "shortcut icon", "apple-touch-icon"];
 
-fn get_best_favicon_url(head_children: &Vec<Rc<Node>>, url: &str) -> Result<Option<String>> {
-    Ok(head_children
+fn get_best_favicon_url(head_children: &Vec<Rc<Node>>, url: &str) -> Option<String> {
+    head_children
         .iter()
         .filter_map(|child| match &child.data {
             NodeData::Element { name, attrs, .. } => {
@@ -560,10 +592,10 @@ fn get_best_favicon_url(head_children: &Vec<Rc<Node>>, url: &str) -> Result<Opti
         })
         .collect::<Vec<String>>()
         .first()
-        .cloned())
+        .cloned()
 }
 
-async fn fetch_favicon(url: &str) -> Result<Option<NewIcon>> {
+async fn fetch_favicon(url: &str) -> anyhow::Result<Option<NewIcon>> {
     debug!("fetching favicon from {url}");
     let response = CLIENT
         .get(url)
