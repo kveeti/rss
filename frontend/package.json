@@ -1,0 +1,27 @@
+{
+	"name": "frontend",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"start": "vite",
+		"dev": "vite",
+		"build": "vite build",
+		"serve": "vite preview"
+	},
+	"devDependencies": {
+		"@tailwindcss/postcss": "^4.1.13",
+		"@trivago/prettier-plugin-sort-imports": "^6.0.0",
+		"postcss": "^8.4.49",
+		"prettier": "^3.7.4",
+		"prettier-plugin-tailwindcss": "^0.7.2",
+		"solid-devtools": "^0.34.3",
+		"tailwindcss": "^4.1.13",
+		"vite": "^7.1.4",
+		"vite-plugin-solid": "^2.11.8"
+	},
+	"dependencies": {
+		"@solidjs/router": "^0.15.1",
+		"solid-js": "^1.9.5"
+	}
+}
