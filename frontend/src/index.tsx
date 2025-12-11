@@ -16,12 +16,12 @@ if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
 
 export const routes: RouteDefinition[] = [
 	{
-		path: "/",
-		component: lazy(() => import("./pages/index-page")),
+		path: "/feeds",
+		component: lazy(() => import("./pages/feeds-page")),
 	},
 	{
 		path: "**",
-		component: () => <Navigate href="/" />,
+		component: () => <Navigate href="/feeds" />,
 	},
 ];
 
