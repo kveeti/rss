@@ -24,6 +24,11 @@ pub async fn start_api(data: Data) {
             post(handlers::feeds::new_feed).get(handlers::feeds::query_feeds),
         )
         .route("/feeds/{id}/icon", get(handlers::feeds::get_feed_icon))
+        .route("/feeds/{id}", get(handlers::feeds::get_feed))
+        .route(
+            "/feeds/{id}/entries",
+            get(handlers::feeds::get_feed_entries),
+        )
         .layer(cors("http://localhost:3000"))
         .with_state(state);
 

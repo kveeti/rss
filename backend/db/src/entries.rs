@@ -1,6 +1,6 @@
 use anyhow::Context;
 use chrono::{DateTime, Utc};
-use sqlx::{Postgres, QueryBuilder, query, query_as};
+use sqlx::{Postgres, QueryBuilder, Row, query, query_as};
 
 use crate::{Data, create_id, icons::NewIcon};
 
@@ -140,6 +140,34 @@ impl Data {
         Ok(feed)
     }
 
+    pub async fn get_feed_by_id_with_entry_counts(
+        &self,
+        id: &str,
+    ) -> Result<Option<FeedWithEntryCounts>, sqlx::Error> {
+        let feed = query_as!(
+            FeedWithEntryCounts,
+            r#"select
+                f.id,
+                f.title,
+                f.feed_url,
+                f.site_url,
+                f.created_at,
+                count(e.id) as "entry_count!",
+                count(e.id) filter (where e.read_at is null) as "unread_entry_count!"
+            from feeds f
+            left join entries e on e.feed_id = f.id
+            where f.id = $1
+            group by f.id
+            order by f.created_at desc
+            "#,
+            id
+        )
+        .fetch_optional(&self.pg_pool)
+        .await?;
+
+        Ok(feed)
+    }
+
     pub async fn get_feeds_with_entry_counts(
         &self,
     ) -> Result<Vec<FeedWithEntryCounts>, sqlx::Error> {
@@ -165,6 +193,136 @@ impl Data {
 
         Ok(rows)
     }
+
+    pub async fn get_feed_entries(
+        &self,
+        feed_id: &str,
+        cursor: Option<Cursor>,
+        limit: Option<i64>,
+    ) -> Result<CursorOutput<EntryForList>, sqlx::Error> {
+        let mut query: QueryBuilder<Postgres> = QueryBuilder::new(
+            r#"
+            select 
+                e.id,
+                e.feed_id,
+                e.title,
+                e.url,
+                e.comments_url,
+                e.published_at,
+                e.read_at,
+                e.starred_at,
+                e.created_at,
+                e.updated_at
+            from entries e
+            "#,
+        );
+
+        query.push("where e.feed_id = ").push_bind(feed_id);
+
+        let order = match cursor {
+            Some(Cursor::Left(ref id)) => {
+                query
+                    .push(" and (")
+                    .push("( e.published_at = ( select published_at from entries where id = ")
+                    .push_bind(id.to_owned())
+                    .push(")")
+                    .push(" and e.id > ")
+                    .push_bind(id.to_owned())
+                    .push(")")
+                    .push(" or e.published_at > ( select published_at from entries where id = ")
+                    .push_bind(id)
+                    .push(")")
+                    .push(")");
+
+                "asc"
+            }
+            Some(Cursor::Right(ref id)) => {
+                query
+                    .push(" and (")
+                    .push("( e.published_at = ( select published_at from entries where id = ")
+                    .push_bind(id.to_owned())
+                    .push(")")
+                    .push(" and e.id < ")
+                    .push_bind(id.to_owned())
+                    .push(")")
+                    .push(" or e.published_at < ( select published_at from entries where id = ")
+                    .push_bind(id)
+                    .push(")")
+                    .push(")");
+
+                "desc"
+            }
+            None => "desc",
+        };
+
+        query
+            .push(" order by e.published_at ")
+            .push(order)
+            .push(", e.id ")
+            .push(order);
+
+        let limit = limit.unwrap_or(20) + 1;
+        query.push(" limit ").push(limit);
+
+        let rows = query.build().fetch_all(&self.pg_pool).await?;
+
+        let mut entries: Vec<EntryForList> = rows
+            .into_iter()
+            .map(|row| EntryForList {
+                id: row.get_unchecked("id"),
+                title: row.get_unchecked("title"),
+                url: row.get_unchecked("url"),
+                comments_url: row.get_unchecked("comments_url"),
+                read_at: row.get_unchecked("read_at"),
+                starred_at: row.get_unchecked("starred_at"),
+                published_at: row.get_unchecked("published_at"),
+            })
+            .collect();
+
+        let has_more = entries.len() == limit as usize;
+        if has_more {
+            entries.pop();
+        }
+
+        match cursor {
+            Some(Cursor::Left(_)) => entries.reverse(),
+            _ => {}
+        }
+
+        let (next_id, prev_id) = if let [first, _second, ..] = &entries[..] {
+            let first_id = first.id.to_owned();
+            let last_id = entries.last().expect("last").id.to_owned();
+
+            let (next_id, prev_id) = match (has_more, cursor) {
+                (true, None) => (Some(last_id), None),
+                (false, None) => (None, None),
+                (true, Some(_)) => (Some(last_id), Some(first_id)),
+                (false, Some(Cursor::Left(_))) => (Some(last_id), None),
+                (false, Some(Cursor::Right(_))) => (None, Some(first_id)),
+            };
+            (next_id, prev_id)
+        } else {
+            (None, None)
+        };
+
+        Ok(CursorOutput {
+            entries,
+            next_id,
+            prev_id,
+        })
+    }
+}
+
+pub enum Cursor {
+    Left(String),
+    Right(String),
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct CursorOutput<T> {
+    pub entries: Vec<T>,
+    pub next_id: Option<String>,
+    pub prev_id: Option<String>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -179,6 +337,17 @@ pub struct Entry {
     pub published_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct EntryForList {
+    pub id: String,
+    pub title: String,
+    pub url: String,
+    pub comments_url: Option<String>,
+    pub read_at: Option<DateTime<Utc>>,
+    pub starred_at: Option<DateTime<Utc>>,
+    pub published_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, serde::Serialize)]
