@@ -5,6 +5,9 @@ use tracing::info;
 mod entries;
 pub use entries::*;
 
+mod feeds;
+pub use feeds::*;
+
 mod icons;
 pub use icons::*;
 

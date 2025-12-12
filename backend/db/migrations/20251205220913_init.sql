@@ -3,6 +3,9 @@ create table feeds (
     title text not null,
     feed_url text not null,
     site_url text,
+    last_synced_at timestamptz,
+    last_sync_result text,
+    sync_started_at timestamptz,
     created_at timestamptz not null default now(),
     updated_at timestamptz,
 

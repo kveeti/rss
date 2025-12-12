@@ -17,6 +17,7 @@ version = "0.0.0"
 dependencies = [
  "api",
  "db",
+ "feed_loader",
  "tokio",
  "tracing-subscriber",
 ]
@@ -576,6 +577,7 @@ dependencies = [
  "sha2",
  "texting_robots",
  "thiserror 2.0.17",
+ "tokio",
  "tracing",
  "url",
 ]

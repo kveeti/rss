@@ -1,10 +1,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
+use tokio::time::Duration;
 
 use anyhow::Context;
 use base64::Engine;
-use chrono::DateTime;
-use db::{NewEntry, NewFeed, NewIcon};
+use chrono::{DateTime, Utc};
+use db::{Data, NewEntry, NewFeed, NewIcon};
 use html5ever::{ParseOpts, parse_document, tendril::TendrilSink, tree_builder::TreeBuilderOpts};
 use markup5ever_rcdom::Node;
 use markup5ever_rcdom::{NodeData, RcDom};
@@ -20,7 +21,7 @@ use tracing::warn;
 use url::Url;
 
 #[derive(Debug)]
-pub enum NewFeedResult {
+pub enum GetFeedResult {
     DiscoveredMultiple(Vec<String>),
     Feed {
         feed: NewFeed,
@@ -36,7 +37,7 @@ pub enum NewFeedResult {
 }
 
 #[derive(Debug, thiserror::Error)]
-pub enum NewFeedError {
+pub enum GetFeedError {
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
 
@@ -59,8 +60,8 @@ pub enum NewFeedError {
     ParseFeedError,
 }
 
-pub async fn new_feed(url: &str) -> Result<NewFeedResult, NewFeedError> {
-    debug!("new feed: {}", url);
+pub async fn get_feed(url: &str) -> Result<GetFeedResult, GetFeedError> {
+    debug!("feed requested: {}", url);
 
     let url = if !url.starts_with("http") {
         debug!("url doesn't have scheme, assuming https");
@@ -69,36 +70,36 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult, NewFeedError> {
         url
     };
 
-    let robots_url = get_robots_url(url).map_err(|_| NewFeedError::RobotsDeterminingUrlError)?;
+    let robots_url = get_robots_url(url).map_err(|_| GetFeedError::RobotsDeterminingUrlError)?;
     debug!("checking robots at {robots_url}");
 
     let robots = CLIENT
         .get(robots_url)
         .send()
         .await
-        .map_err(|_| NewFeedError::RobotsFetchError)?
+        .map_err(|_| GetFeedError::RobotsFetchError)?
         .bytes()
         .await
-        .map_err(|_| NewFeedError::RobotsParsingError)?;
-    let robots = Robot::new(USER_AGENT, &robots).map_err(|_| NewFeedError::RobotsParsingError)?;
+        .map_err(|_| GetFeedError::RobotsParsingError)?;
+    let robots = Robot::new(USER_AGENT, &robots).map_err(|_| GetFeedError::RobotsParsingError)?;
 
     let allowed = robots.allowed(url);
     if !allowed {
         debug!("not allowed to fetch {url}");
-        return Ok(NewFeedResult::NotAllowed);
+        return Ok(GetFeedResult::NotAllowed);
     }
 
     let feed = fetch_feed(url).await.context("error fetching feed")?;
     match feed {
         FeedFetchResult::Feed { bytes, location } => {
             let (parsed_feed, entries) =
-                parse_feed(&bytes, &url).map_err(|_| NewFeedError::ParseFeedError)?;
+                parse_feed(&bytes, &url).map_err(|_| GetFeedError::ParseFeedError)?;
             let feed = NewFeed {
                 title: parsed_feed.title,
                 site_url: parsed_feed.site_url,
                 feed_url: url.to_owned(),
             };
-            Ok(NewFeedResult::Feed {
+            Ok(GetFeedResult::Feed {
                 feed,
                 entries,
                 icon: discover_favicon(&location.origin().ascii_serialization())
@@ -134,26 +135,26 @@ pub async fn new_feed(url: &str) -> Result<NewFeedResult, NewFeedError> {
                         };
 
                         let (parsed_feed, entries) = parse_feed(&bytes, &feed_url)
-                            .map_err(|_| NewFeedError::ParseFeedError)?;
+                            .map_err(|_| GetFeedError::ParseFeedError)?;
                         let feed = NewFeed {
                             title: parsed_feed.title,
                             site_url: parsed_feed.site_url,
                             feed_url: feed_url.to_owned(),
                         };
-                        Ok(NewFeedResult::Feed {
+                        Ok(GetFeedResult::Feed {
                             feed,
                             entries,
                             icon,
                         })
                     }
-                    _ => Err(NewFeedError::UnexpectedFeed),
+                    _ => Err(GetFeedError::UnexpectedFeed),
                 }
             } else {
-                Ok(NewFeedResult::DiscoveredMultiple(feed_urls))
+                Ok(GetFeedResult::DiscoveredMultiple(feed_urls))
             }
         }
-        FeedFetchResult::NotFound => Ok(NewFeedResult::NotFound),
-        FeedFetchResult::Unknown { status, body } => Err(NewFeedError::UnexpectedError(
+        FeedFetchResult::NotFound => Ok(GetFeedResult::NotFound),
+        FeedFetchResult::Unknown { status, body } => Err(GetFeedError::UnexpectedError(
             anyhow::anyhow!("unknown error fetching feed: {status}: {body}"),
         )),
     }
@@ -632,4 +633,65 @@ async fn fetch_favicon(url: &str) -> anyhow::Result<Option<NewIcon>> {
 
 fn hash_bytes(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
+}
+
+static MAX_SYNCING_FEEDS: i64 = 10;
+
+pub async fn feed_sync_loop(data: Data) -> anyhow::Result<()> {
+    let mut ticker = tokio::time::interval(Duration::from_secs(60));
+
+    loop {
+        ticker.tick().await;
+
+        let syncing_feeds_count = data.get_syncing_feeds_count().await?;
+        if syncing_feeds_count > MAX_SYNCING_FEEDS {
+            tracing::warn!("too many syncing feeds, skipping");
+            continue;
+        }
+
+        let feeds = data
+            .get_feeds_to_sync(Utc::now() - chrono::Duration::hours(1), MAX_SYNCING_FEEDS)
+            .await?;
+
+        if feeds.len() == 0 {
+            tracing::info!("no feeds to sync");
+            continue;
+        }
+
+        tracing::info!("syncing {} feeds", feeds.len());
+
+        for feed in feeds {
+            let result = get_feed(&feed.feed_url).await;
+
+            match result {
+                Ok(GetFeedResult::Feed {
+                    feed,
+                    entries,
+                    icon,
+                }) => {
+                    let _ = data
+                        .upsert_feed_and_entries_and_icon(&feed, entries, icon)
+                        .await
+                        .map_err(|e| tracing::error!("error upserting feed: {e:#}"));
+
+                    tracing::info!("feed synced {:?}", feed);
+                }
+                Ok(GetFeedResult::DiscoveredMultiple(feed_urls)) => {
+                    tracing::warn!("discovered multiple feeds: {feed_urls:?}");
+                }
+                Ok(GetFeedResult::NotFound) => {
+                    tracing::warn!("feed not found");
+                }
+                Ok(GetFeedResult::NotAllowed) => {
+                    tracing::warn!("feed not allowed");
+                }
+                Ok(GetFeedResult::Unknown { status, body }) => {
+                    tracing::warn!("unknown error fetching feed: {status}: {body}");
+                }
+                Err(e) => {
+                    tracing::error!("error getting feed: {}", e);
+                }
+            }
+        }
+    }
 }

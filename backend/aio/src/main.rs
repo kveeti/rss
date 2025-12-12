@@ -1,4 +1,3 @@
-use api::start_api;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
@@ -14,5 +13,8 @@ pub async fn main() {
         .await
         .expect("creating Data");
 
-    start_api(data).await;
+    let _ = tokio::join!(
+        feed_loader::feed_sync_loop(data.clone()),
+        api::start_api(data)
+    );
 }

@@ -4,22 +4,13 @@ use sqlx::{Postgres, QueryBuilder, Row, query, query_as};
 
 use crate::{Data, create_id, icons::NewIcon};
 
-#[derive(Debug, thiserror::Error)]
-pub enum InsertFeedError {
-    #[error("duplicate feed")]
-    DuplicateFeed,
-
-    #[error(transparent)]
-    UnexpectedError(#[from] anyhow::Error),
-}
-
 impl Data {
-    pub async fn add_feed_and_entries_and_icon(
+    pub async fn upsert_feed_and_entries_and_icon(
         &self,
-        feed: NewFeed,
+        feed: &NewFeed,
         entries: Vec<NewEntry>,
         icon: Option<NewIcon>,
-    ) -> Result<(), InsertFeedError> {
+    ) -> Result<(), anyhow::Error> {
         let mut tx = self
             .pg_pool
             .begin()
@@ -28,9 +19,15 @@ impl Data {
 
         let feed_id = create_id();
 
-        let res = query!(
+        query!(
             r#"
-            insert into feeds (id, title, feed_url, site_url) values ($1, $2, $3, $4)
+            insert into feeds (id, title, feed_url, site_url, last_synced_at, sync_started_at) values ($1, $2, $3, $4, now(), NULL)
+            on conflict (feed_url) do update set
+                title = $2,
+                site_url = $4,
+                updated_at = now(),
+                sync_started_at = NULL,
+                last_synced_at = now()
             "#,
             feed_id,
             feed.title,
@@ -38,20 +35,8 @@ impl Data {
             feed.site_url
         )
         .execute(&mut *tx)
-        .await;
-
-        match res {
-            Ok(_) => {}
-            Err(e) => {
-                if let Some(e) = e.as_database_error() {
-                    if e.code() == Some("23505".into()) {
-                        return Err(InsertFeedError::DuplicateFeed);
-                    }
-                } else {
-                    return Err(InsertFeedError::UnexpectedError(e.into()));
-                }
-            }
-        }
+        .await
+        .context("error upserting feed")?;
 
         let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
             "insert into entries (id, feed_id, title, url, comments_url, published_at)",
@@ -65,6 +50,16 @@ impl Data {
             b.push_bind(entry.comments_url);
             b.push_bind(entry.published_at);
         });
+
+        builder.push(
+            r#"
+            on conflict (feed_id, url) do update set
+                title = excluded.title,
+                url = excluded.url,
+                comments_url = excluded.comments_url,
+                published_at = excluded.published_at
+            "#,
+        );
 
         builder
             .build()

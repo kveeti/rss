@@ -4,8 +4,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use db::InsertFeedError;
-use feed_loader::NewFeedResult;
+use feed_loader::GetFeedResult;
 use serde_json::json;
 
 use crate::{AppState, error::ApiError};
@@ -28,10 +27,10 @@ pub async fn new_feed(
             .into_response());
     }
 
-    let res = feed_loader::new_feed(&query.url).await.unwrap();
+    let res = feed_loader::get_feed(&query.url).await.unwrap();
 
     let response = match res {
-        NewFeedResult::DiscoveredMultiple(feed_urls) => (
+        GetFeedResult::DiscoveredMultiple(feed_urls) => (
             StatusCode::OK,
             Json(json!({
                 "status": "discovered_multiple",
@@ -40,41 +39,32 @@ pub async fn new_feed(
         )
             .into_response(),
 
-        NewFeedResult::Feed {
+        GetFeedResult::Feed {
             feed,
             entries,
             icon,
         } => {
-            match state
+            state
                 .data
-                .add_feed_and_entries_and_icon(feed, entries, icon)
-                .await
-            {
-                Ok(_) => (StatusCode::OK, Json(json!({ "status": "feed_added" }))).into_response(),
-                Err(InsertFeedError::DuplicateFeed) => (
-                    StatusCode::CONFLICT,
-                    Json(json!({ "status": "duplicate_feed" })),
-                )
-                    .into_response(),
-                Err(e) => {
-                    return Err(anyhow::anyhow!(e).into());
-                }
-            }
+                .upsert_feed_and_entries_and_icon(&feed, entries, icon)
+                .await?;
+
+            (StatusCode::OK, Json(json!({ "status": "feed_added" }))).into_response()
         }
 
-        NewFeedResult::NotFound => (
+        GetFeedResult::NotFound => (
             StatusCode::NOT_FOUND,
             Json(json!({ "status": "not_found" })),
         )
             .into_response(),
 
-        NewFeedResult::NotAllowed => (
+        GetFeedResult::NotAllowed => (
             StatusCode::FORBIDDEN,
             Json(json!({ "status": "not_allowed" })),
         )
             .into_response(),
 
-        NewFeedResult::Unknown { status, body } => (
+        GetFeedResult::Unknown { status, body } => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "status": "unknown", "status": status, "body": body })),
         )
