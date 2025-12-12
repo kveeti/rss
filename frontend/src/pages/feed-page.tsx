@@ -139,27 +139,11 @@ function FeedEntries(props: { feedId: string }) {
 			<ErrorBoundary fallback={<p>Error loading entries</p>}>
 				<Suspense fallback={<p>Loading entries...</p>}>
 					<div class="sticky top-0 right-0 left-0 z-10 flex justify-end p-2">
-						<div class="flex items-center gap-2">
-							<Link
-								class="bg-gray-1 border-gray-5 focus flex size-8 items-center justify-center rounded-full border"
-								href={
-									entries()?.prev_id &&
-									`/feeds/${props.feedId}?left=${entries()?.prev_id}`
-								}
-							>
-								<IconChevronLeft />
-							</Link>
-
-							<Link
-								class="bg-gray-1 border-gray-5 focus flex size-8 items-center justify-center rounded-full border"
-								href={
-									entries()?.next_id &&
-									`/feeds/${props.feedId}?right=${entries()?.next_id}`
-								}
-							>
-								<IconChevronRight />
-							</Link>
-						</div>
+						<Pagination
+							nextId={entries()?.next_id}
+							prevId={entries()?.prev_id}
+							feedId={props.feedId}
+						/>
 					</div>
 
 					<ul class="space-y-2">
@@ -195,27 +179,11 @@ function FeedEntries(props: { feedId: string }) {
 					</ul>
 
 					<div class="sticky right-0 bottom-0 left-0 flex justify-end p-2">
-						<div class="flex items-center gap-2">
-							<Link
-								class="bg-gray-1 border-gray-5 focus flex size-8 items-center justify-center rounded-full border"
-								href={
-									entries()?.prev_id &&
-									`/feeds/${props.feedId}?left=${entries()?.prev_id}`
-								}
-							>
-								<IconChevronLeft />
-							</Link>
-
-							<Link
-								class="bg-gray-1 border-gray-5 focus flex size-8 items-center justify-center rounded-full border"
-								href={
-									entries()?.next_id &&
-									`/feeds/${props.feedId}?right=${entries()?.next_id}`
-								}
-							>
-								<IconChevronRight />
-							</Link>
-						</div>
+						<Pagination
+							nextId={entries()?.next_id}
+							prevId={entries()?.prev_id}
+							feedId={props.feedId}
+						/>
 					</div>
 				</Suspense>
 			</ErrorBoundary>
@@ -247,6 +215,26 @@ function Link(allProps: { href?: string | null } & JSX.HTMLAttributes<HTMLAnchor
 				<a role="link" aria-disabled="true" {...rest} />
 			</Match>
 		</Switch>
+	);
+}
+
+function Pagination(props: { nextId?: string; prevId?: string; feedId: string }) {
+	return (
+		<div class="flex items-center gap-2">
+			<Link
+				class="bg-gray-1 border-gray-5 focus flex size-8 items-center justify-center rounded-full border aria-disabled:opacity-40"
+				href={props.prevId && `/feeds/${props.feedId}?left=${props.prevId}`}
+			>
+				<IconChevronLeft />
+			</Link>
+
+			<Link
+				class="bg-gray-1 border-gray-5 focus flex size-8 items-center justify-center rounded-full border aria-disabled:opacity-40"
+				href={props.nextId && `/feeds/${props.feedId}?right=${props.nextId}`}
+			>
+				<IconChevronRight />
+			</Link>
+		</div>
 	);
 }
 
