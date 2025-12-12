@@ -39,5 +39,5 @@ create table entries (
     created_at timestamptz not null default now(),
     updated_at timestamptz,
 
-    unique(url)
+    unique(feed_id, url)
 );
