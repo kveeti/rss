@@ -44,7 +44,7 @@ export function Button(
 	}
 
 	return (
-		<button class={_class} {...props}>
+		<button {...props} class={_class}>
 			<ConditionalSpinner isLoading={props.isLoading}>{props.children}</ConditionalSpinner>
 		</button>
 	);

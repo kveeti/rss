@@ -20,6 +20,10 @@ export const routes: RouteDefinition[] = [
 		component: lazy(() => import("./pages/feeds-page")),
 	},
 	{
+		path: "/feeds/new",
+		component: lazy(() => import("./pages/new-feed-page")),
+	},
+	{
 		path: "/feeds/:feedId",
 		component: lazy(() => import("./pages/feed-page")),
 	},

@@ -2,12 +2,22 @@ import { ErrorBoundary, For, Suspense, createResource, resetErrorBoundaries } fr
 
 import { api } from "../lib/api";
 import { API_BASE_URL } from "../lib/constants";
-import { Button } from "../ui/button";
+import { Button, buttonStyles } from "../ui/button";
+import { IconPlus } from "../ui/icons/plus";
 
 export default function FeedsPage() {
 	return (
 		<main class="mx-auto max-w-[40rem]">
-			<h1 class="mt-4 mb-8 text-3xl font-bold">Feeds</h1>
+			<div class="mt-4 mb-8 flex items-center justify-between gap-2">
+				<h1 class="text-3xl font-bold">Feeds</h1>
+
+				<a
+					href="/feeds/new"
+					class={buttonStyles({ variant: "ghost" }) + " inline-flex gap-3"}
+				>
+					<IconPlus class="inline" /> <span>New feed</span>
+				</a>
+			</div>
 
 			<ErrorBoundary fallback={<FeedsListError />}>
 				<Suspense fallback={<FeedsListSkeleton />}>

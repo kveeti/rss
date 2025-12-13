@@ -45,6 +45,28 @@ impl Data {
         .await?
         .expect("syncing feeds count"))
     }
+
+    pub async fn get_similar_named_feed(
+        &self,
+        feed_url: &str,
+    ) -> Result<Option<FeedToSync>, sqlx::Error> {
+        let feed_url = format!("%{}%", feed_url);
+
+        let feed = sqlx::query_as!(
+            FeedToSync,
+            r#"
+            select f.id, f.feed_url, f.site_url
+            from feeds f
+            where f.feed_url like $1
+            limit 1
+            "#,
+            feed_url
+        )
+        .fetch_optional(&self.pg_pool)
+        .await?;
+
+        Ok(feed)
+    }
 }
 
 pub struct FeedToSync {

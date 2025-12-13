@@ -123,18 +123,6 @@ impl Data {
         Ok(())
     }
 
-    pub async fn get_feed_by_url(&self, url: &str) -> Result<Option<Feed>, sqlx::Error> {
-        let feed = query_as!(
-            Feed,
-            r#"select id, title, feed_url, site_url, created_at, updated_at from feeds where feed_url = $1"#,
-            url
-        )
-        .fetch_optional(&self.pg_pool)
-        .await?;
-
-        Ok(feed)
-    }
-
     pub async fn get_feed_by_id_with_entry_counts(
         &self,
         id: &str,
