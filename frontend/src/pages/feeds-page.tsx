@@ -85,7 +85,7 @@ function FeedsList() {
 		<ul class="flex flex-col gap-1">
 			<For each={feeds()}>
 				{(feed) => (
-					<li class="focus:bg-gray-a2 hover:bg-gray-a2 relative -mx-4 flex flex-col gap-2 p-4">
+					<li class="focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative -mx-4 flex flex-col gap-2 p-4">
 						<a
 							href={`/feeds/${feed.id}`}
 							class="focus absolute top-0 left-0 h-full w-full"
@@ -97,12 +97,15 @@ function FeedsList() {
 							/>
 
 							<div class="flex items-center gap-2 font-medium">
-								<span class="inline">{feed.title}</span>{" "}
+								<span class="font-cool inline text-[1.3rem] group-hover/feed:underline group-has-[a[id=site]:hover]/feed:no-underline">
+									{feed.title}
+								</span>
 								<a
+									id="site"
 									href={feed.site_url}
-									class="group text-gray-11 relative z-10 -m-4 p-4 text-xs outline-none"
+									class="group/link text-gray-11 relative z-10 -m-4 p-4 text-xs outline-none"
 								>
-									<span class="in-focus:outline-gray-a10 group-hover:underline in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
+									<span class="in-focus:outline-gray-a10 underline group-hover/link:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
 										{feed.site_url
 											.replace(/^https?:\/\//, "")
 											.replace(/\/$/, "")}

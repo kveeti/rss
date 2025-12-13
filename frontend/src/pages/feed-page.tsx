@@ -149,25 +149,33 @@ function FeedEntries(props: { feedId: string }) {
 					<ul class="space-y-2">
 						<For each={entries()?.entries}>
 							{(entry) => (
-								<li class="focus:bg-gray-a2 hover:bg-gray-a2 relative -mx-4 p-4">
-									<a href={entry.url} class="focus absolute inset-0">
+								<li class="group/entry focus:bg-gray-a2 hover:bg-gray-a2 relative -mx-4 p-4">
+									<a
+										href={entry.url}
+										target="_blank"
+										class="focus absolute inset-0"
+									>
 										<span class="sr-only">{entry.title}</span>
 									</a>
 
-									<p class="mb-1">{entry.title}</p>
+									<p class="font-cool mb-1 text-[1.3rem] font-[200] group-hover/entry:underline group-has-[a[id=comments]:hover]/entry:no-underline">
+										{entry.title}
+									</p>
 
 									<div class="flex items-center gap-2">
-										<p class="text-gray-11 text-xs">
+										<p class="text-gray-11 text-sm">
 											{relativeTime(new Date(entry.published_at))}
 										</p>
 
 										<Show when={entry.comments_url}>
 											<IconDividerVertical />
 											<a
+												id="comments"
 												href={entry.comments_url}
-												class="group text-gray-11 relative z-10 -m-4 p-4 text-xs outline-none"
+												target="_blank"
+												class="group/comments text-gray-11 relative z-10 -m-4 p-4 text-sm underline outline-none"
 											>
-												<span class="in-focus:outline-gray-a10 group-hover:underline in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
+												<span class="in-focus:outline-gray-a10 group-hover/comments:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
 													comments
 												</span>
 											</a>
@@ -208,9 +216,7 @@ function Link(allProps: { href?: string | null } & JSX.HTMLAttributes<HTMLAnchor
 
 	return (
 		<Switch>
-			<Match when={props.href}>
-				{(href) => <a role="link" aria-disabled="true" {...rest} href={href()} />}
-			</Match>
+			<Match when={props.href}>{(href) => <a role="link" {...rest} href={href()} />}</Match>
 			<Match when={!props.href}>
 				<a role="link" aria-disabled="true" {...rest} />
 			</Match>

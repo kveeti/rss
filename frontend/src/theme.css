@@ -12,6 +12,9 @@
 	--color-*: initial;
 	--spacing: 0.25rem;
 	--font-default: "JetBrainsMono Nerd Font", "JetBrainsMono", jbmono, monospace;
+	--font-cool: "Crimson Pro", crimsonprovar, serif;
+
+	--color-white: #ffffff;
 
 	--color-gray-1: var(--gray-1);
 	--color-gray-2: var(--gray-2);
