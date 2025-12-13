@@ -13,6 +13,9 @@ import {
 
 import { api } from "../lib/api";
 import { API_BASE_URL } from "../lib/constants";
+import { IconChevronLeft } from "../ui/icons/chevron-left";
+import { IconChevronRight } from "../ui/icons/chevron-right";
+import { IconDividerVertical } from "../ui/icons/divider-vertical";
 
 type FeedWithEntryCounts = {
 	id: string;
@@ -31,7 +34,6 @@ type FeedWithEntryCounts = {
 //   have them not jump around when paginating to
 //   between pages with different amounts of entries
 // - backend should tell if front should attempt to download favicon
-// - move icons under ui/icons/
 
 export default function FeedPage() {
 	const params = useParams();
@@ -201,10 +203,10 @@ function FeedEntries(props: { feedId: string }) {
 
 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 const unitsInSec = [60, 3600, 86400, 86400 * 7, 86400 * 30, 86400 * 365, Infinity];
-const unitStrings = ["second", "minute", "hour", "day", "week", "month", "year"];
+const unitStrings = ["second", "minute", "hour", "day", "week", "month", "year"] as const;
 
 function relativeTime(date: Date) {
-	const secondsDiff = Math.round((date - Date.now()) / 1000);
+	const secondsDiff = Math.round((date.getTime() - Date.now()) / 1000);
 	const unitIndex = unitsInSec.findIndex((cutoff) => cutoff > Math.abs(secondsDiff));
 	const divisor = unitIndex ? unitsInSec[unitIndex - 1] : 1;
 
@@ -241,62 +243,5 @@ function Pagination(props: { nextId?: string; prevId?: string; feedId: string })
 				<IconChevronRight />
 			</Link>
 		</div>
-	);
-}
-
-function IconChevronLeft() {
-	return (
-		<svg
-			width="15"
-			height="15"
-			viewBox="0 0 15 15"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-		>
-			<path
-				d="M8.84182 3.13514C9.04327 3.32401 9.05348 3.64042 8.86462 3.84188L5.43521 7.49991L8.86462 11.1579C9.05348 11.3594 9.04327 11.6758 8.84182 11.8647C8.64036 12.0535 8.32394 12.0433 8.13508 11.8419L4.38508 7.84188C4.20477 7.64955 4.20477 7.35027 4.38508 7.15794L8.13508 3.15794C8.32394 2.95648 8.64036 2.94628 8.84182 3.13514Z"
-				fill="currentColor"
-				fill-rule="evenodd"
-				clip-rule="evenodd"
-			></path>
-		</svg>
-	);
-}
-
-function IconChevronRight() {
-	return (
-		<svg
-			width="15"
-			height="15"
-			viewBox="0 0 15 15"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-		>
-			<path
-				d="M6.1584 3.13508C6.35985 2.94621 6.67627 2.95642 6.86514 3.15788L10.6151 7.15788C10.7954 7.3502 10.7954 7.64949 10.6151 7.84182L6.86514 11.8418C6.67627 12.0433 6.35985 12.0535 6.1584 11.8646C5.95694 11.6757 5.94673 11.3593 6.1356 11.1579L9.565 7.49985L6.1356 3.84182C5.94673 3.64036 5.95694 3.32394 6.1584 3.13508Z"
-				fill="currentColor"
-				fill-rule="evenodd"
-				clip-rule="evenodd"
-			></path>
-		</svg>
-	);
-}
-
-function IconDividerVertical() {
-	return (
-		<svg
-			width="15"
-			height="15"
-			viewBox="0 0 15 15"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-		>
-			<path
-				d="M7.5 2C7.77614 2 8 2.22386 8 2.5L8 12.5C8 12.7761 7.77614 13 7.5 13C7.22386 13 7 12.7761 7 12.5L7 2.5C7 2.22386 7.22386 2 7.5 2Z"
-				fill="currentColor"
-				fill-rule="evenodd"
-				clip-rule="evenodd"
-			></path>
-		</svg>
 	);
 }
