@@ -69,30 +69,27 @@ impl Data {
 
         if let Some(icon) = icon {
             let icon_id = create_id();
+
             query!(
                 r#"
-                insert into icons (id, hash, data, content_type) values ($1, $2, $3, $4)
-                on conflict (hash) do nothing
+                with icon as (
+                    insert into icons (id, hash, data, content_type) values ($1, $2, $3, $4)
+                    on conflict (hash) do nothing
+                    returning id
+                )
+                insert into feeds_icons (feed_id, icon_id)
+                select $5, id from icon
+                on conflict (feed_id, icon_id) do nothing
                 "#,
                 icon_id,
                 icon.hash,
                 icon.data,
-                icon.content_type
+                icon.content_type,
+                feed_id
             )
             .execute(&mut *tx)
             .await
-            .context("error inserting icon")?;
-
-            query!(
-                r#"
-                insert into feeds_icons (feed_id, icon_id) values ($1, $2)
-                "#,
-                feed_id,
-                icon_id
-            )
-            .execute(&mut *tx)
-            .await
-            .context("error inserting feed icon")?;
+            .context("error upserting icon and feeds_icons")?;
         }
 
         tx.commit().await.context("error committing transaction")?;
@@ -157,7 +154,7 @@ impl Data {
         let rows = query_as!(
             FeedWithEntryCounts,
             r#"
-            select 
+            select
                 f.id,
                 f.title,
                 f.feed_url,
@@ -185,7 +182,7 @@ impl Data {
     ) -> Result<CursorOutput<EntryForList>, sqlx::Error> {
         let mut query: QueryBuilder<Postgres> = QueryBuilder::new(
             r#"
-            select 
+            select
                 e.id,
                 e.feed_id,
                 e.title,
