@@ -11,7 +11,8 @@ import {
 import { Button, buttonStyles } from "../components/button";
 import { FeedIcon } from "../components/feed-icon";
 import { IconPlus } from "../components/icons/plus";
-import { Feed, getFeeds } from "./feeds-page.data";
+import { FeedWithEntryCounts } from "./feed-page.data";
+import { getFeeds } from "./feeds-page.data";
 
 export default function FeedsPage() {
 	const feeds = createAsync(() => getFeeds());
@@ -109,7 +110,7 @@ function FeedsListSkeleton() {
 	);
 }
 
-function FeedsList(props: { feeds?: Array<Feed> }) {
+function FeedsList(props: { feeds?: Array<FeedWithEntryCounts> }) {
 	return (
 		<>
 			{!props.feeds?.length ? (
@@ -123,7 +124,7 @@ function FeedsList(props: { feeds?: Array<Feed> }) {
 								class="focus absolute top-0 left-0 h-full w-full"
 							></a>
 							<div class="flex items-center gap-3">
-								<FeedIcon feedId={feed.id} class="size-6" />
+								{feed.has_icon && <FeedIcon feedId={feed.id} class="size-6" />}
 
 								<div class="flex items-center gap-2 font-medium">
 									<span class="font-cool inline text-[1.3rem] group-hover/feed:underline group-has-[a[id=site]:hover]/feed:no-underline">

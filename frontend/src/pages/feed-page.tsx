@@ -1,8 +1,8 @@
 import { createAsync, revalidate, useParams, useSearchParams } from "@solidjs/router";
 import { ErrorBoundary, For, JSX, Match, Show, Suspense, Switch, splitProps } from "solid-js";
 
-import { FeedIcon } from "../components/feed-icon";
 import { Button } from "../components/button";
+import { FeedIcon } from "../components/feed-icon";
 import { IconChevronLeft } from "../components/icons/chevron-left";
 import { IconChevronRight } from "../components/icons/chevron-right";
 import { IconDividerVertical } from "../components/icons/divider-vertical";
@@ -57,7 +57,7 @@ function FeedDetails(props: { feedId: string }) {
 								<span class="sr-only">{feed.title}</span>
 							</a>
 
-							<FeedIcon feedId={feed.id} class="size-6" />
+							{feed.has_icon && <FeedIcon feedId={feed.id} class="size-6" />}
 
 							<h1 class="text-2xl font-bold">{feed.title}</h1>
 						</div>

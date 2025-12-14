@@ -133,7 +133,12 @@ impl Data {
                 f.site_url,
                 f.created_at,
                 count(e.id) as "entry_count!",
-                count(e.id) filter (where e.read_at is null) as "unread_entry_count!"
+                count(e.id) filter (where e.read_at is null) as "unread_entry_count!",
+                exists (
+                    select 1
+                    from feeds_icons fi
+                    where fi.feed_id = f.id
+                ) as "has_icon!"
             from feeds f
             left join entries e on e.feed_id = f.id
             where f.id = $1
@@ -161,7 +166,12 @@ impl Data {
                 f.site_url,
                 f.created_at,
                 count(e.id) as "entry_count!",
-                count(e.id) filter (where e.read_at is null) as "unread_entry_count!"
+                count(e.id) filter (where e.read_at is null) as "unread_entry_count!",
+                exists (
+                    select 1
+                    from feeds_icons fi
+                    where fi.feed_id = f.id
+                ) as "has_icon!"
             from feeds f
             left join entries e on e.feed_id = f.id
             group by f.id
@@ -364,4 +374,5 @@ pub struct FeedWithEntryCounts {
     pub created_at: DateTime<Utc>,
     pub entry_count: i64,
     pub unread_entry_count: i64,
+    pub has_icon: bool,
 }
