@@ -17,9 +17,7 @@ impl Data {
             .await
             .context("error starting transaction")?;
 
-        let feed_id = create_id();
-
-        query!(
+        let feed_id = query!(
             r#"
             insert into feeds (id, title, feed_url, site_url, last_synced_at, sync_started_at) values ($1, $2, $3, $4, now(), NULL)
             on conflict (feed_url) do update set
@@ -28,15 +26,17 @@ impl Data {
                 updated_at = now(),
                 sync_started_at = NULL,
                 last_synced_at = now()
+            returning id
             "#,
-            feed_id,
+            create_id(),
             feed.title,
             feed.feed_url,
             feed.site_url
         )
-        .execute(&mut *tx)
+        .fetch_one(&mut *tx)
         .await
-        .context("error upserting feed")?;
+        .context("error upserting feed")?
+        .id;
 
         let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
             "insert into entries (id, feed_id, title, url, comments_url, published_at)",
