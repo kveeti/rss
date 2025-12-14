@@ -1,5 +1,12 @@
 import { createAsync, revalidate } from "@solidjs/router";
-import { ErrorBoundary, For, Suspense, resetErrorBoundaries } from "solid-js";
+import {
+	ErrorBoundary,
+	Suspense,
+	createEffect,
+	createSignal,
+	onCleanup,
+	resetErrorBoundaries,
+} from "solid-js";
 
 import { API_BASE_URL } from "../lib/constants";
 import { Button, buttonStyles } from "../ui/button";
@@ -40,6 +47,36 @@ export default function FeedsPage() {
 	);
 }
 
+function DelayedLoadingAnnouncement(props: {
+	message: string;
+	isLoading: boolean;
+	delayMS?: number;
+}) {
+	const [showMessage, setShowMessage] = createSignal(false);
+	let timeout: number | null = null;
+
+	createEffect(() => {
+		if (props.isLoading) {
+			timeout = setTimeout(() => {
+				setShowMessage(true);
+			}, props.delayMS ?? 200);
+		}
+	});
+
+	onCleanup(() => {
+		if (timeout) {
+			clearTimeout(timeout);
+		}
+		setShowMessage(false);
+	});
+
+	return (
+		<div role="status" aria-live="polite" aria-atomic="true" class="sr-only">
+			{showMessage() && props.message}
+		</div>
+	);
+}
+
 function FeedsListError(props: { retry: () => void }) {
 	return (
 		<div class="space-y-4">
@@ -52,19 +89,23 @@ function FeedsListError(props: { retry: () => void }) {
 
 function FeedsListSkeleton() {
 	return (
-		<ul class="space-y-4" aria-hidden="true">
-			{Array.from({ length: 7 }).map(() => (
-				<li class="bg-gray-a2/20 flex w-full flex-col gap-2 p-4">
-					<div class="flex items-center gap-3">
-						<div class="inline-flex size-6"></div>
+		<>
+			<DelayedLoadingAnnouncement isLoading message="Loading feeds" />
+
+			<ul class="space-y-4" aria-hidden="true">
+				{Array.from({ length: 7 }).map(() => (
+					<li class="bg-gray-a2/20 flex w-full flex-col gap-2 p-4">
+						<div class="flex items-center gap-3">
+							<div class="inline-flex size-6"></div>
+
+							<p class="invisible">0</p>
+						</div>
 
 						<p class="invisible">0</p>
-					</div>
-
-					<p class="invisible">0</p>
-				</li>
-			))}
-		</ul>
+					</li>
+				))}
+			</ul>
+		</>
 	);
 }
 
