@@ -2,10 +2,10 @@ import { createAsync, revalidate, useParams, useSearchParams } from "@solidjs/ro
 import { ErrorBoundary, For, JSX, Match, Show, Suspense, Switch, splitProps } from "solid-js";
 
 import { FeedIcon } from "../components/feed-icon";
-import { Button } from "../ui/button";
-import { IconChevronLeft } from "../ui/icons/chevron-left";
-import { IconChevronRight } from "../ui/icons/chevron-right";
-import { IconDividerVertical } from "../ui/icons/divider-vertical";
+import { Button } from "../components/button";
+import { IconChevronLeft } from "../components/icons/chevron-left";
+import { IconChevronRight } from "../components/icons/chevron-right";
+import { IconDividerVertical } from "../components/icons/divider-vertical";
 import { getFeed, getFeedEntries } from "./feed-page.data";
 
 // TODO:

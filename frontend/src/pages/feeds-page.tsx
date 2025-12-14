@@ -8,9 +8,9 @@ import {
 	resetErrorBoundaries,
 } from "solid-js";
 
+import { Button, buttonStyles } from "../components/button";
 import { FeedIcon } from "../components/feed-icon";
-import { Button, buttonStyles } from "../ui/button";
-import { IconPlus } from "../ui/icons/plus";
+import { IconPlus } from "../components/icons/plus";
 import { Feed, getFeeds } from "./feeds-page.data";
 
 export default function FeedsPage() {

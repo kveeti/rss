@@ -2,9 +2,9 @@ import { useNavigate } from "@solidjs/router";
 import { For, Ref, Show, createSignal } from "solid-js";
 
 import { api } from "../lib/api";
-import { Button, buttonStyles } from "../ui/button";
-import { IconInfo } from "../ui/icons/info";
-import { Input } from "../ui/input";
+import { Button, buttonStyles } from "../components/button";
+import { IconInfo } from "../components/icons/info";
+import { Input } from "../components/input";
 
 type States =
 	| {
