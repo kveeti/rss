@@ -4,6 +4,8 @@ import "solid-devtools";
 import { lazy } from "solid-js";
 import { render } from "solid-js/web";
 
+import { preloadsFeedPage } from "./pages/feed-page.data";
+import { preloadsFeedsPage } from "./pages/feeds-page.data";
 import "./styles.css";
 
 const root = document.getElementById("root");
@@ -18,6 +20,7 @@ export const routes: RouteDefinition[] = [
 	{
 		path: "/feeds",
 		component: lazy(() => import("./pages/feeds-page")),
+		preload: preloadsFeedsPage,
 	},
 	{
 		path: "/feeds/new",
@@ -26,6 +29,7 @@ export const routes: RouteDefinition[] = [
 	{
 		path: "/feeds/:feedId",
 		component: lazy(() => import("./pages/feed-page")),
+		preload: ({ params }) => preloadsFeedPage(params.feedId),
 	},
 	{
 		path: "**",

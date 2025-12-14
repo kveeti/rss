@@ -1,11 +1,14 @@
-import { ErrorBoundary, For, Suspense, createResource, resetErrorBoundaries } from "solid-js";
+import { createAsync, revalidate } from "@solidjs/router";
+import { ErrorBoundary, For, Suspense, resetErrorBoundaries } from "solid-js";
 
-import { api } from "../lib/api";
 import { API_BASE_URL } from "../lib/constants";
 import { Button, buttonStyles } from "../ui/button";
 import { IconPlus } from "../ui/icons/plus";
+import { Feed, getFeeds } from "./feeds-page.data";
 
 export default function FeedsPage() {
+	const feeds = createAsync(() => getFeeds());
+
 	return (
 		<main class="mx-auto max-w-[40rem]">
 			<div class="mt-4 mb-8 flex items-center justify-between gap-2">
@@ -19,45 +22,30 @@ export default function FeedsPage() {
 				</a>
 			</div>
 
-			<ErrorBoundary fallback={<FeedsListError />}>
+			<ErrorBoundary
+				fallback={
+					<FeedsListError
+						retry={() => {
+							revalidate(getFeeds.key);
+							resetErrorBoundaries();
+						}}
+					/>
+				}
+			>
 				<Suspense fallback={<FeedsListSkeleton />}>
-					<FeedsList />
+					<FeedsList feeds={feeds()} />
 				</Suspense>
 			</ErrorBoundary>
 		</main>
 	);
 }
 
-const [feeds, { refetch }] = createResource(() => {
-	return api<
-		Array<{
-			id: string;
-			title: string;
-			feed_url: string;
-			site_url: string;
-			created_at: string;
-			entry_count: number;
-			unread_entry_count: number;
-		}>
-	>({
-		path: "/v1/feeds",
-		method: "GET",
-	});
-});
-
-function FeedsListError() {
+function FeedsListError(props: { retry: () => void }) {
 	return (
 		<div class="space-y-4">
 			<p class="bg-red-a4 p-4">Error loading feeds</p>
 
-			<Button
-				onClick={() => {
-					refetch();
-					resetErrorBoundaries();
-				}}
-			>
-				Retry
-			</Button>
+			<Button onClick={props.retry}>Retry</Button>
 		</div>
 	);
 }
@@ -80,10 +68,10 @@ function FeedsListSkeleton() {
 	);
 }
 
-function FeedsList() {
+function FeedsList(props: { feeds?: Array<Feed> }) {
 	return (
 		<ul class="flex flex-col gap-1">
-			<For each={feeds()}>
+			<For each={props.feeds}>
 				{(feed) => (
 					<li class="focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative -mx-4 flex flex-col gap-2 p-4">
 						<a

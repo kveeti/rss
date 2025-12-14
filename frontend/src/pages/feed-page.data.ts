@@ -1,0 +1,68 @@
+import { query } from "@solidjs/router";
+
+import { api } from "../lib/api";
+
+export type FeedWithEntryCounts = {
+	id: string;
+	title: string;
+	feed_url: string;
+	site_url: string;
+	created_at: string;
+	entry_count: number;
+	unread_entry_count: number;
+};
+
+export const getFeed = query((feedId: string) => {
+	return api<FeedWithEntryCounts>({
+		path: `/v1/feeds/${feedId}`,
+		method: "GET",
+	});
+}, "feed");
+
+export const getFeedEntries = query(
+	({
+		feedId,
+		limit,
+		left,
+		right,
+	}: {
+		feedId: string;
+		limit?: string;
+		left?: string;
+		right?: string;
+	}) => {
+		const query: Record<string, string> = {};
+
+		if (limit) {
+			query.limit = limit;
+		}
+		if (left) {
+			query.left = left;
+		}
+		if (right) {
+			query.right = right;
+		}
+
+		return api<{
+			entries: Array<{
+				id: string;
+				title: string;
+				url: string;
+				comments_url: string;
+				published_at: string;
+			}>;
+			next_id: string;
+			prev_id: string;
+		}>({
+			path: `/v1/feeds/${feedId}/entries`,
+			query,
+			method: "GET",
+		});
+	},
+	"feedEntries"
+);
+
+export function preloadsFeedPage(feedId: string) {
+	getFeed(feedId);
+	getFeedEntries({ feedId });
+}

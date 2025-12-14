@@ -1,31 +1,11 @@
-import { useParams, useSearchParams } from "@solidjs/router";
-import {
-	ErrorBoundary,
-	For,
-	JSX,
-	Match,
-	Show,
-	Suspense,
-	Switch,
-	createResource,
-	splitProps,
-} from "solid-js";
+import { createAsync, useParams, useSearchParams } from "@solidjs/router";
+import { ErrorBoundary, For, JSX, Match, Show, Suspense, Switch, splitProps } from "solid-js";
 
-import { api } from "../lib/api";
 import { API_BASE_URL } from "../lib/constants";
 import { IconChevronLeft } from "../ui/icons/chevron-left";
 import { IconChevronRight } from "../ui/icons/chevron-right";
 import { IconDividerVertical } from "../ui/icons/divider-vertical";
-
-type FeedWithEntryCounts = {
-	id: string;
-	title: string;
-	feed_url: string;
-	site_url: string;
-	created_at: string;
-	entry_count: number;
-	unread_entry_count: number;
-};
+import { getFeed, getFeedEntries } from "./feed-page.data";
 
 // TODO:
 // - loading skeletons
@@ -59,12 +39,7 @@ function FeedSkeleton() {
 }
 
 function FeedDetails(props: { feedId: string }) {
-	const [feed] = createResource(props.feedId, async (feedId) => {
-		return api<FeedWithEntryCounts>({
-			path: `/v1/feeds/${feedId}`,
-			method: "GET",
-		});
-	});
+	const feed = createAsync(() => getFeed(props.feedId));
 
 	return (
 		<ErrorBoundary fallback={<FeedError />}>
@@ -98,42 +73,13 @@ function FeedDetails(props: { feedId: string }) {
 function FeedEntries(props: { feedId: string }) {
 	const [searchParams] = useSearchParams();
 
-	const [entries] = createResource(
-		() => ({
+	const entries = createAsync(() =>
+		getFeedEntries({
 			feedId: props.feedId,
-			limit: searchParams.limit,
-			left: searchParams.left,
-			right: searchParams.right,
-		}),
-		async ({ feedId, limit, left, right }) => {
-			const query: Record<string, string> = {};
-
-			if (limit) {
-				query.limit = limit as string;
-			}
-			if (left) {
-				query.left = left as string;
-			}
-			if (right) {
-				query.right = right as string;
-			}
-
-			return api<{
-				entries: Array<{
-					id: string;
-					title: string;
-					url: string;
-					comments_url: string;
-					published_at: string;
-				}>;
-				next_id: string;
-				prev_id: string;
-			}>({
-				path: `/v1/feeds/${feedId}/entries`,
-				query,
-				method: "GET",
-			});
-		}
+			limit: searchParams.limit as string | undefined,
+			left: searchParams.left as string | undefined,
+			right: searchParams.right as string | undefined,
+		})
 	);
 
 	return (
