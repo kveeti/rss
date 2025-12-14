@@ -1,7 +1,7 @@
 import { createAsync, revalidate, useParams, useSearchParams } from "@solidjs/router";
 import { ErrorBoundary, For, JSX, Match, Show, Suspense, Switch, splitProps } from "solid-js";
 
-import { API_BASE_URL } from "../lib/constants";
+import { FeedIcon } from "../components/feed-icon";
 import { Button } from "../ui/button";
 import { IconChevronLeft } from "../ui/icons/chevron-left";
 import { IconChevronRight } from "../ui/icons/chevron-right";
@@ -57,11 +57,7 @@ function FeedDetails(props: { feedId: string }) {
 								<span class="sr-only">{feed.title}</span>
 							</a>
 
-							<img
-								class="size-6"
-								src={API_BASE_URL + `/v1/feeds/${feed.id}/icon`}
-								aria-hidden="true"
-							/>
+							<FeedIcon feedId={feed.id} class="size-6" />
 
 							<h1 class="text-2xl font-bold">{feed.title}</h1>
 						</div>

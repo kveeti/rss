@@ -8,7 +8,7 @@ import {
 	resetErrorBoundaries,
 } from "solid-js";
 
-import { API_BASE_URL } from "../lib/constants";
+import { FeedIcon } from "../components/feed-icon";
 import { Button, buttonStyles } from "../ui/button";
 import { IconPlus } from "../ui/icons/plus";
 import { Feed, getFeeds } from "./feeds-page.data";
@@ -123,10 +123,7 @@ function FeedsList(props: { feeds?: Array<Feed> }) {
 								class="focus absolute top-0 left-0 h-full w-full"
 							></a>
 							<div class="flex items-center gap-3">
-								<img
-									class="inline-flex size-6"
-									src={API_BASE_URL + `/v1/feeds/${feed.id}/icon`}
-								/>
+								<FeedIcon feedId={feed.id} class="size-6" />
 
 								<div class="flex items-center gap-2 font-medium">
 									<span class="font-cool inline text-[1.3rem] group-hover/feed:underline group-has-[a[id=site]:hover]/feed:no-underline">
