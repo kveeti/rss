@@ -11,12 +11,9 @@ import {
 import { Button, buttonStyles } from "../components/button";
 import { FeedIcon } from "../components/feed-icon";
 import { IconPlus } from "../components/icons/plus";
-import { FeedWithEntryCounts } from "./feed-page.data";
 import { getFeeds } from "./feeds-page.data";
 
 export default function FeedsPage() {
-	const feeds = createAsync(() => getFeeds());
-
 	return (
 		<main class="mx-auto max-w-[40rem]">
 			<div class="mt-4 mb-8 flex items-center justify-between gap-2">
@@ -30,21 +27,27 @@ export default function FeedsPage() {
 				</a>
 			</div>
 
-			<ErrorBoundary
-				fallback={
-					<FeedsListError
-						retry={() => {
-							revalidate(getFeeds.key);
-							resetErrorBoundaries();
-						}}
-					/>
-				}
-			>
-				<Suspense fallback={<FeedsListSkeleton />}>
-					<FeedsList feeds={feeds()} />
-				</Suspense>
-			</ErrorBoundary>
+			<Feeds />
 		</main>
+	);
+}
+
+function Feeds() {
+	return (
+		<ErrorBoundary
+			fallback={
+				<FeedsListError
+					retry={() => {
+						revalidate(getFeeds.key);
+						resetErrorBoundaries();
+					}}
+				/>
+			}
+		>
+			<Suspense fallback={<FeedsListSkeleton />}>
+				<FeedsList />
+			</Suspense>
+		</ErrorBoundary>
 	);
 }
 
@@ -110,14 +113,16 @@ function FeedsListSkeleton() {
 	);
 }
 
-function FeedsList(props: { feeds?: Array<FeedWithEntryCounts> }) {
+function FeedsList() {
+	const feeds = createAsync(() => getFeeds());
+
 	return (
 		<>
-			{!props.feeds?.length ? (
+			{!feeds()?.length ? (
 				<p class="bg-gray-a2/60 p-4">No feeds yet</p>
 			) : (
 				<ul class="flex flex-col gap-1">
-					{props.feeds?.map((feed) => (
+					{feeds()?.map((feed) => (
 						<li class="focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative -mx-4 flex flex-col gap-2 p-4">
 							<a
 								href={`/feeds/${feed.id}`}
