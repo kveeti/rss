@@ -28,6 +28,8 @@ sha2 = "0.10.9"
 url = "2.5.7"
 percent-encoding = "2.3.2"
 base64 = "0.22.1"
+dotenv = "0.15.0"
+envy = "0.4.2"
 
 [profile.release]
 strip = "debuginfo"

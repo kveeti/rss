@@ -1,6 +1,9 @@
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
+use crate::config::Config;
+
 pub mod api;
+pub mod config;
 pub mod db;
 pub mod feed_loader;
 
@@ -15,12 +18,14 @@ pub async fn main() {
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let data = db::Data::new("postgres://pg:pg@localhost:5432/db")
+    let config = Config::new().expect("valid config");
+
+    let data = db::Data::new(&config.database_url)
         .await
         .expect("creating Data");
 
     let _ = tokio::join!(
         feed_loader::feed_sync_loop(data.clone()),
-        api::start_api(data)
+        api::start_api(data, config.into())
     );
 }

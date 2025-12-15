@@ -16,7 +16,12 @@ struct AppState {
     data: Data,
 }
 
-pub async fn start_api(data: Data) {
+pub struct ApiConfig {
+    pub front_base_url: String,
+    pub host: String,
+}
+
+pub async fn start_api(data: Data, config: ApiConfig) {
     let state = AppState { data };
 
     let v1_routes = Router::new()
@@ -30,7 +35,7 @@ pub async fn start_api(data: Data) {
             "/feeds/{id}/entries",
             get(handlers::feeds::get_feed_entries),
         )
-        .layer(cors("http://localhost:3000"))
+        .layer(cors(&config.front_base_url))
         .with_state(state);
 
     let api_routes = Router::new().nest(
@@ -40,10 +45,14 @@ pub async fn start_api(data: Data) {
             .route("/health", get(health)),
     );
 
-    let listener = TcpListener::bind("0.0.0.0:8000").await.unwrap();
+    let listener = TcpListener::bind(config.host)
+        .await
+        .expect("tcp listener successful bind");
     tracing::info!("listening at {}", listener.local_addr().unwrap());
 
-    axum::serve(listener, api_routes).await.unwrap();
+    axum::serve(listener, api_routes)
+        .await
+        .expect("axum successful serve");
 }
 
 async fn health() -> &'static str {
