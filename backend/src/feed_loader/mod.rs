@@ -5,7 +5,6 @@ use tokio::time::Duration;
 use anyhow::Context;
 use base64::Engine;
 use chrono::{DateTime, Utc};
-use db::{Data, NewEntry, NewFeed, NewIcon};
 use html5ever::{ParseOpts, parse_document, tendril::TendrilSink, tree_builder::TreeBuilderOpts};
 use markup5ever_rcdom::Node;
 use markup5ever_rcdom::{NodeData, RcDom};
@@ -19,6 +18,8 @@ use texting_robots::{Robot, get_robots_url};
 use tracing::debug;
 use tracing::warn;
 use url::Url;
+
+use crate::db::{Data, NewEntry, NewFeed, NewIcon};
 
 #[derive(Debug)]
 pub enum GetFeedResult {

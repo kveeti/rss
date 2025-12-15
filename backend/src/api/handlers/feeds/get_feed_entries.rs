@@ -4,9 +4,11 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use db::Cursor;
 
-use crate::{AppState, error::ApiError};
+use crate::{
+    api::{AppState, error::ApiError},
+    db::Cursor,
+};
 
 #[derive(Debug, serde::Deserialize)]
 pub struct GetFeedEntriesQuery {

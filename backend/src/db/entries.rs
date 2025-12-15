@@ -2,7 +2,7 @@ use anyhow::Context;
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder, Row, query, query_as};
 
-use crate::{Data, create_id, icons::NewIcon};
+use crate::db::{Data, NewIcon, create_id};
 
 impl Data {
     pub async fn upsert_feed_and_entries_and_icon(

@@ -5,7 +5,7 @@ use axum::{
     response::IntoResponse,
 };
 
-use crate::{AppState, error::ApiError};
+use crate::api::{AppState, error::ApiError};
 
 pub async fn get_feed(
     State(state): State<AppState>,

@@ -29,7 +29,7 @@ impl Data {
 
         info!("connected to db, running migrations...");
 
-        migrate!("./migrations")
+        migrate!("./src/db/migrations")
             .run(&pg)
             .await
             .context("error running migrations")?;

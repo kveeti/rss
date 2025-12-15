@@ -3,11 +3,12 @@ use axum::{
     http::{HeaderValue, Method, header},
     routing::{get, post},
 };
-use db::Data;
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
 
-pub mod error;
+use crate::db::Data;
+
+mod error;
 mod handlers;
 
 #[derive(Clone)]

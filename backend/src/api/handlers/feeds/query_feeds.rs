@@ -1,7 +1,7 @@
 use anyhow::Context;
 use axum::{Json, extract::State, http::StatusCode, response::IntoResponse};
 
-use crate::{AppState, error::ApiError};
+use crate::api::{AppState, error::ApiError};
 
 pub async fn query_feeds(State(state): State<AppState>) -> Result<impl IntoResponse, ApiError> {
     let feeds = state

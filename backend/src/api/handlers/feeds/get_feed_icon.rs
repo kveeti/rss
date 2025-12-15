@@ -8,7 +8,7 @@ use axum::{
 };
 use serde_json::json;
 
-use crate::{AppState, error::ApiError};
+use crate::api::{AppState, error::ApiError};
 
 pub async fn get_feed_icon(
     State(state): State<AppState>,

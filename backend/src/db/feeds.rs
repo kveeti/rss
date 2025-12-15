@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 
-use crate::Data;
+use crate::db::Data;
 
 impl Data {
     pub async fn get_feeds_to_sync(

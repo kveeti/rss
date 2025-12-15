@@ -8,10 +8,10 @@ Backend:
     ```bash
     docker compose up -d
     ```
-- Backend: Run project `aio` using cargo. Db migrations are executed on startup
+- Backend: Run backend using cargo. Db migrations are executed on startup
     ```bash
     cd backend
-    cargo run -p aio
+    cargo run
     ```
 
 Frontend:

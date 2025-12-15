@@ -1,11 +1,17 @@
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
+pub mod api;
+pub mod db;
+pub mod feed_loader;
+
 #[tokio::main]
 pub async fn main() {
+    let crate_name = env!("CARGO_CRATE_NAME");
+
     tracing_subscriber::registry()
-        .with(EnvFilter::from(
-            "aio=debug,api=debug,feed_loader=debug,db=debug".to_string(),
-        ))
+        .with(EnvFilter::from(format!(
+            "{crate_name}=debug,tower_http=info,sqlx=info,axum::rejection=trace"
+        )))
         .with(tracing_subscriber::fmt::layer())
         .init();
 

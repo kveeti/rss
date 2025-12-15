@@ -1,6 +1,6 @@
 use sqlx::{query, query_as};
 
-use crate::{Data, create_id};
+use crate::db::{Data, create_id};
 
 impl Data {
     pub async fn upsert_icon(&self, icon: NewIcon) -> Result<(), sqlx::Error> {

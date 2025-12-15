@@ -5,10 +5,12 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
 };
-use feed_loader::GetFeedResult;
 use serde_json::json;
 
-use crate::{AppState, error::ApiError};
+use crate::{
+    api::{AppState, error::ApiError},
+    feed_loader::{self, GetFeedResult},
+};
 
 #[derive(Debug, serde::Deserialize)]
 pub struct AddFeedQuery {

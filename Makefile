@@ -10,7 +10,7 @@ MAKEFLAGS += -j
 frontdev:
 	@cd frontend && pnpm run dev
 backdev:
-	@cd backend && cargo watch -x "run -p aio"
+	@cd backend && cargo watch -x run
 dev: backdev frontdev
 
 frontbuild:
@@ -22,7 +22,7 @@ build: backbuild frontbuild
 frontpreview:
 	@cd frontend && pnpm run build && pnpm run preview
 backpreview:
-	@cd backend && cargo run --release -p aio
+	@cd backend && cargo run --release
 preview: backpreview frontpreview
 
 dbreset:
