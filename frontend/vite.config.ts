@@ -4,10 +4,10 @@ import solidPlugin from "vite-plugin-solid";
 
 export default defineConfig({
 	plugins: [devtools(), solidPlugin()],
-	server: {
-		port: 3000,
-	},
 	build: {
 		target: "esnext",
 	},
+	clearScreen: false,
+	server: { port: 3000 },
+	preview: { port: 3000 },
 });
