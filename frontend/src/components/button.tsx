@@ -18,6 +18,7 @@ const sizes = {
 	default: "h-10 px-4",
 	lg: "h-12 px-4",
 	icon: "size-10",
+	withIcon: "h-10 px-3",
 };
 
 export function buttonStyles(props?: {

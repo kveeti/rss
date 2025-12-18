@@ -21,7 +21,10 @@ export default function FeedsPage() {
 
 				<a
 					href="/feeds/new"
-					class={buttonStyles({ variant: "ghost" }) + " -m-4 inline-flex gap-3"}
+					class={
+						buttonStyles({ variant: "ghost", size: "withIcon" }) +
+						" -m-3 inline-flex gap-3"
+					}
 				>
 					<IconPlus class="inline" /> <span>New feed</span>
 				</a>
