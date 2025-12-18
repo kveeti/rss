@@ -22,7 +22,7 @@ export default function FeedPage() {
 	}
 
 	return (
-		<main class="mx-auto max-w-[40rem]">
+		<main class="mx-auto max-w-160 px-3">
 			<ErrorBoundary
 				fallback={(_error, reset) => (
 					<FeedDetailsError
@@ -136,7 +136,7 @@ function FeedEntriesList(props: { feedId: string; left?: string; right?: string;
 				/>
 			</div>
 
-			<ul class="space-y-2">
+			<ul class="divide-gray-a3 divide-y">
 				<For each={entries()?.entries}>
 					{(entry) => (
 						<li class="group/entry focus:bg-gray-a2 hover:bg-gray-a2 relative -mx-4 p-4">
@@ -144,7 +144,7 @@ function FeedEntriesList(props: { feedId: string; left?: string; right?: string;
 								<span class="sr-only">{entry.title}</span>
 							</a>
 
-							<p class="font-cool mb-1 text-[1.3rem] font-[200] group-hover/entry:underline group-has-[a[id=comments]:hover]/entry:no-underline">
+							<p class="font-cool mb-1 text-[1.3rem] font-[400] group-hover/entry:underline group-has-[a[id=comments]:hover]/entry:no-underline">
 								{entry.title}
 							</p>
 
