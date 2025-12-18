@@ -92,13 +92,6 @@ function FeedDetailsSkeleton() {
 function FeedEntries(props: { feedId: string }) {
 	const [searchParams] = useSearchParams();
 
-	const entriesProps = {
-		feedId: props.feedId,
-		limit: searchParams.limit as string | undefined,
-		left: searchParams.left as string | undefined,
-		right: searchParams.right as string | undefined,
-	};
-
 	return (
 		<ErrorBoundary
 			fallback={(_error, reset) => (
@@ -106,17 +99,24 @@ function FeedEntries(props: { feedId: string }) {
 					class="mt-8"
 					retry={() => {
 						reset();
-						revalidate(getFeedEntries.keyFor(entriesProps));
+						revalidate(
+							getFeedEntries.keyFor({
+								feedId: props.feedId,
+								limit: searchParams.limit as string | undefined,
+								left: searchParams.left as string | undefined,
+								right: searchParams.right as string | undefined,
+							})
+						);
 					}}
 				/>
 			)}
 		>
 			<Suspense fallback={<FeedEntriesSkeleton />}>
 				<FeedEntriesList
-					feedId={entriesProps.feedId}
-					limit={entriesProps.limit}
-					left={entriesProps.left}
-					right={entriesProps.right}
+					feedId={props.feedId}
+					limit={searchParams.limit as string | undefined}
+					left={searchParams.left as string | undefined}
+					right={searchParams.right as string | undefined}
 				/>
 			</Suspense>
 		</ErrorBoundary>
