@@ -128,7 +128,7 @@ function FeedEntriesList(props: { feedId: string; left?: string; right?: string;
 
 	return (
 		<>
-			<div class="sticky top-0 right-0 left-0 z-10 flex justify-end p-2">
+			<div class="sticky top-0 right-0 left-0 z-10 flex justify-end py-2">
 				<Pagination
 					nextId={entries()?.next_id}
 					prevId={entries()?.prev_id}
@@ -172,7 +172,7 @@ function FeedEntriesList(props: { feedId: string; left?: string; right?: string;
 				</For>
 			</ul>
 
-			<div class="sticky right-0 bottom-0 left-0 flex justify-end p-2">
+			<div class="sticky right-0 bottom-0 left-0 flex justify-end py-2">
 				<Pagination
 					nextId={entries()?.next_id}
 					prevId={entries()?.prev_id}
