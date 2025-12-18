@@ -12,3 +12,6 @@ pub use get_feed::get_feed;
 
 mod get_feed_entries;
 pub use get_feed_entries::get_feed_entries;
+
+mod sync_feed;
+pub use sync_feed::sync_feed;

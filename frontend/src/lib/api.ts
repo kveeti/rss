@@ -28,6 +28,9 @@ export async function api<TReturnValue>(props: Props) {
 		`${API_BASE_URL}${props.path}${props.query ? `?${new URLSearchParams(props.query)}` : ""}`,
 		fetchProps
 	)
+		.catch(() => {
+			throw new Error("network error");
+		})
 		.then(async (res) => {
 			const json = await res.json().catch(() => null);
 
@@ -36,8 +39,5 @@ export async function api<TReturnValue>(props: Props) {
 			} else {
 				throw new Error(json?.error ?? `unexpected server error - status: ${res.status}`);
 			}
-		})
-		.catch(() => {
-			throw new Error("network error");
 		});
 }

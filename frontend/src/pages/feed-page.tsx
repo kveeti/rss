@@ -1,11 +1,12 @@
 import { createAsync, revalidate, useParams, useSearchParams } from "@solidjs/router";
 import { ErrorBoundary, For, JSX, Match, Show, Suspense, Switch, splitProps } from "solid-js";
 
-import { Button } from "../components/button";
+import { Button, buttonStyles } from "../components/button";
 import { FeedIcon } from "../components/feed-icon";
 import { IconChevronLeft } from "../components/icons/chevron-left";
 import { IconChevronRight } from "../components/icons/chevron-right";
 import { IconDividerVertical } from "../components/icons/divider-vertical";
+import { IconSettings } from "../components/icons/settings";
 import { getFeed, getFeedEntries } from "./feed-page.data";
 
 // TODO:
@@ -50,18 +51,29 @@ function FeedDetails(props: { feedId: string }) {
 	return (
 		<Show when={feed()} keyed>
 			{(feed) => (
-				<div>
-					<div class="mt-4 mb-4 flex items-center justify-between gap-4">
-						<div class="relative flex items-center gap-4">
-							<a href={feed.site_url} class="absolute inset-0">
-								<span class="sr-only">{feed.title}</span>
-							</a>
+				<div class="mx-auto my-4 flex w-full justify-between gap-6">
+					<div class="font-cool relative -my-2 -ms-12 py-2 ps-12 text-2xl">
+						{feed.has_icon && (
+							<FeedIcon
+								feedId={feed.id}
+								class="me-3 inline size-5.5 align-text-bottom min-[44.5rem]:-ms-8.5"
+							/>
+						)}
+						<h1 class="inline font-medium">{feed.title}</h1>
 
-							{feed.has_icon && <FeedIcon feedId={feed.id} class="size-6" />}
-
-							<h1 class="text-2xl font-bold">{feed.title}</h1>
-						</div>
+						<a href={feed.site_url} class="absolute inset-0">
+							<span class="sr-only">{feed.title}</span>
+						</a>
 					</div>
+
+					<a
+						href={`/feeds/${props.feedId}/edit`}
+						class={
+							buttonStyles({ variant: "ghost", size: "withIcon" }) + " -mx-3 gap-3"
+						}
+					>
+						<IconSettings /> <span>Edit</span>
+					</a>
 				</div>
 			)}
 		</Show>

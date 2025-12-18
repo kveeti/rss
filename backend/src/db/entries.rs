@@ -132,6 +132,7 @@ impl Data {
                 f.feed_url,
                 f.site_url,
                 f.created_at,
+                f.last_synced_at,
                 count(e.id) as "entry_count!",
                 count(e.id) filter (where e.read_at is null) as "unread_entry_count!",
                 exists (
@@ -165,6 +166,7 @@ impl Data {
                 f.feed_url,
                 f.site_url,
                 f.created_at,
+                f.last_synced_at,
                 count(e.id) as "entry_count!",
                 count(e.id) filter (where e.read_at is null) as "unread_entry_count!",
                 exists (
@@ -375,4 +377,5 @@ pub struct FeedWithEntryCounts {
     pub entry_count: i64,
     pub unread_entry_count: i64,
     pub has_icon: bool,
+    pub last_synced_at: Option<DateTime<Utc>>,
 }

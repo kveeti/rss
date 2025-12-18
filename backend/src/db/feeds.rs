@@ -33,6 +33,31 @@ impl Data {
         Ok(feeds)
     }
 
+    pub async fn get_one_feed_to_sync(
+        &self,
+        feed_id: &str,
+    ) -> Result<Option<FeedToSync>, sqlx::Error> {
+        let feed = sqlx::query_as!(
+            FeedToSync,
+            r#"
+            update feeds f
+            set sync_started_at = now()
+            where id in (
+                select id
+                from feeds f
+                where id = $1
+                for update skip locked
+            )
+            returning f.id, f.feed_url, f.site_url
+            "#,
+            feed_id
+        )
+        .fetch_optional(&self.pg_pool)
+        .await?;
+
+        return Ok(feed);
+    }
+
     pub async fn get_syncing_feeds_count(&self) -> Result<i64, sqlx::Error> {
         Ok(sqlx::query_scalar!(
             r#"

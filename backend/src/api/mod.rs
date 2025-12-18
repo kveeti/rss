@@ -35,6 +35,7 @@ pub async fn start_api(data: Data, config: ApiConfig) {
             "/feeds/{id}/entries",
             get(handlers::feeds::get_feed_entries),
         )
+        .route("/feeds/{id}/sync", post(handlers::feeds::sync_feed))
         .layer(cors(&config.front_base_url))
         .with_state(state);
 

@@ -32,6 +32,10 @@ export const routes: RouteDefinition[] = [
 		preload: ({ params }) => preloadsFeedPage(params.feedId),
 	},
 	{
+		path: "/feeds/:feedId/edit",
+		component: lazy(() => import("./pages/feed-edit-page")),
+	},
+	{
 		path: "**",
 		component: () => <Navigate href="/feeds" />,
 	},

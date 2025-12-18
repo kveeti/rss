@@ -11,6 +11,7 @@ export type FeedWithEntryCounts = {
 	entry_count: number;
 	unread_entry_count: number;
 	has_icon: boolean;
+	last_synced_at: string | null;
 };
 
 export const getFeed = query((feedId: string) => {
