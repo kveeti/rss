@@ -164,7 +164,7 @@ function FeedEdit(props: { feedId: string }) {
 
 								<Input label="Site URL" value={feed()!.site_url} />
 
-								<Input label="feed()! URL" value={feed()!.feed_url} />
+								<Input label="Feed URL" value={feed()!.feed_url} />
 
 								<div class="flex justify-end">
 									<Button>Save</Button>

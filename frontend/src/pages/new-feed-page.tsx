@@ -1,10 +1,10 @@
 import { useNavigate } from "@solidjs/router";
 import { For, Ref, Show, createSignal } from "solid-js";
 
-import { api } from "../lib/api";
 import { Button, buttonStyles } from "../components/button";
 import { IconInfo } from "../components/icons/info";
 import { Input } from "../components/input";
+import { api } from "../lib/api";
 
 type States =
 	| {
@@ -94,7 +94,7 @@ export default function NewFeedPage() {
 
 	return (
 		<main class="mx-auto max-w-[20rem]">
-			<h1 class="mt-4 mb-8 text-3xl font-bold">New Feed</h1>
+			<h1 class="font-cool mt-4 mb-8 text-3xl font-medium">New Feed</h1>
 
 			<form
 				class="space-y-4"

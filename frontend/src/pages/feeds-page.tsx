@@ -17,7 +17,7 @@ export default function FeedsPage() {
 	return (
 		<main class="mx-auto max-w-[40rem]">
 			<div class="mt-4 mb-8 flex items-center justify-between gap-2">
-				<h1 class="text-3xl font-bold">Feeds</h1>
+				<h1 class="font-cool text-3xl font-medium">Feeds</h1>
 
 				<a
 					href="/feeds/new"
