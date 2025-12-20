@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use sqlx::{Postgres, QueryBuilder, Row, query, query_as};
@@ -11,6 +13,13 @@ impl Data {
         entries: Vec<NewEntry>,
         icon: Option<NewIcon>,
     ) -> Result<(), anyhow::Error> {
+        let mut seen = HashSet::new();
+        let unique_entries: Vec<_> = entries
+            .iter()
+            .filter(|entry| seen.insert(entry.url.clone()))
+            .cloned()
+            .collect();
+
         let mut tx = self
             .pg_pool
             .begin()
@@ -42,7 +51,7 @@ impl Data {
             "insert into entries (id, feed_id, title, url, comments_url, published_at)",
         );
 
-        builder.push_values(entries, |mut b, entry| {
+        builder.push_values(unique_entries, |mut b, entry| {
             b.push_bind(create_id());
             b.push_bind(&feed_id);
             b.push_bind(entry.title);
@@ -352,7 +361,7 @@ pub struct Feed {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct NewEntry {
     pub title: String,
     pub url: String,
