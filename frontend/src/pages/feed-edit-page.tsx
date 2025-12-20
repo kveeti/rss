@@ -120,7 +120,7 @@ function FeedEdit(props: { feedId: string }) {
 						{feed()!.has_icon && (
 							<FeedIcon
 								feedId={feed()!.id}
-								class="me-3 inline size-5.5 align-text-bottom min-[27rem]:-ms-8.5"
+								class="me-2.5 inline size-5.5 align-text-bottom min-[27rem]:-ms-8.5 min-[27rem]:me-3"
 							/>
 						)}
 						<h1 class="inline font-medium">{feed()!.title}</h1>

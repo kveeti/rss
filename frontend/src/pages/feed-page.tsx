@@ -52,25 +52,23 @@ function FeedDetails(props: { feedId: string }) {
 		<Show when={feed()} keyed>
 			{(feed) => (
 				<div class="mx-auto my-4 flex w-full justify-between gap-6">
-					<div class="font-cool relative -my-2 -ms-12 py-2 ps-12 text-2xl">
-						{feed.has_icon && (
+					<div class="font-cool relative text-xl">
+						{feed!.has_icon && (
 							<FeedIcon
-								feedId={feed.id}
-								class="me-3 inline size-5.5 align-text-bottom min-[44.5rem]:-ms-8.5"
+								feedId={feed!.id}
+								class="me-2.5 inline size-5.5 align-text-bottom"
 							/>
 						)}
-						<h1 class="inline font-medium">{feed.title}</h1>
+						<h1 class="inline font-medium">{feed!.title}</h1>
 
-						<a href={feed.site_url} class="absolute inset-0">
-							<span class="sr-only">{feed.title}</span>
+						<a href={feed!.site_url} class="absolute inset-0">
+							<span class="sr-only">{feed!.title}</span>
 						</a>
 					</div>
 
 					<a
 						href={`/feeds/${props.feedId}/edit`}
-						class={
-							buttonStyles({ variant: "ghost", size: "withIcon" }) + " -mx-3 gap-3"
-						}
+						class={buttonStyles({ variant: "ghost", size: "withIcon" }) + " gap-3"}
 					>
 						<IconSettings /> <span>Edit</span>
 					</a>
@@ -140,18 +138,10 @@ function FeedEntriesList(props: { feedId: string; left?: string; right?: string;
 
 	return (
 		<>
-			<div class="sticky top-0 right-0 left-0 z-10 flex justify-end py-2">
-				<Pagination
-					nextId={entries()?.next_id}
-					prevId={entries()?.prev_id}
-					feedId={props.feedId}
-				/>
-			</div>
-
-			<ul class="divide-gray-a3 divide-y">
+			<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
 				<For each={entries()?.entries}>
 					{(entry) => (
-						<li class="group/entry focus:bg-gray-a2 hover:bg-gray-a2 relative -mx-4 p-4">
+						<li class="group/entry focus:bg-gray-a2 hover:bg-gray-a2 relative px-3 py-4">
 							<a href={entry.url} target="_blank" class="focus absolute inset-0">
 								<span class="sr-only">{entry.title}</span>
 							</a>
@@ -171,7 +161,7 @@ function FeedEntriesList(props: { feedId: string; left?: string; right?: string;
 										id="comments"
 										href={entry.comments_url}
 										target="_blank"
-										class="group/comments text-gray-11 relative z-10 -m-4 p-4 text-sm underline outline-none"
+										class="group/comments text-gray-11 relative -m-4 p-4 text-sm underline outline-none"
 									>
 										<span class="in-focus:outline-gray-a10 group-hover/comments:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
 											comments
@@ -184,12 +174,14 @@ function FeedEntriesList(props: { feedId: string; left?: string; right?: string;
 				</For>
 			</ul>
 
-			<div class="sticky right-0 bottom-0 left-0 flex justify-end py-2">
-				<Pagination
-					nextId={entries()?.next_id}
-					prevId={entries()?.prev_id}
-					feedId={props.feedId}
-				/>
+			<div class="pwa:bottom-28 fixed right-0 bottom-14 left-0 sm:bottom-0">
+				<div class="pointer-events-none mx-auto flex max-w-160 justify-end px-3 py-2">
+					<Pagination
+						nextId={entries()?.next_id}
+						prevId={entries()?.prev_id}
+						feedId={props.feedId}
+					/>
+				</div>
 			</div>
 		</>
 	);
@@ -208,10 +200,6 @@ function FeedEntriesError(props: { class?: string; retry: () => void }) {
 function FeedEntriesSkeleton() {
 	return (
 		<>
-			<div class="sticky top-0 right-0 left-0 z-10 flex justify-end p-2">
-				<Pagination nextId={undefined} prevId={undefined} feedId={undefined} />
-			</div>
-
 			<ul class="space-y-4" aria-hidden="true">
 				{Array.from({ length: 14 }).map(() => (
 					<li class="bg-gray-a2/20 flex w-full flex-col gap-2 p-4">
@@ -226,8 +214,10 @@ function FeedEntriesSkeleton() {
 				))}
 			</ul>
 
-			<div class="sticky right-0 bottom-0 left-0 flex justify-end p-2">
-				<Pagination nextId={undefined} prevId={undefined} feedId={undefined} />
+			<div class="pwa:bottom-28 fixed right-0 bottom-14 left-0 sm:bottom-0">
+				<div class="pointer-events-none mx-auto flex max-w-160 justify-end px-3 py-2">
+					<Pagination nextId={undefined} prevId={undefined} feedId={undefined} />
+				</div>
 			</div>
 		</>
 	);
@@ -260,18 +250,20 @@ function Link(allProps: { href?: string | null } & JSX.HTMLAttributes<HTMLAnchor
 
 function Pagination(props: { nextId?: string; prevId?: string; feedId?: string }) {
 	return (
-		<div class="flex items-center gap-2">
+		<div class="pointer-events-auto flex items-center gap-2">
 			<Link
-				class="bg-gray-1 border-gray-5 focus flex size-8 items-center justify-center rounded-full border aria-disabled:opacity-40"
+				class="bg-gray-1 border-gray-5 focus flex items-center justify-center rounded-full border py-2 ps-2 pe-3 select-none aria-disabled:opacity-40"
 				href={props.prevId && `/feeds/${props.feedId}?left=${props.prevId}`}
 			>
 				<IconChevronLeft />
+				<span class="ms-1 text-xs">prev</span>
 			</Link>
 
 			<Link
-				class="bg-gray-1 border-gray-5 focus flex size-8 items-center justify-center rounded-full border aria-disabled:opacity-40"
+				class="bg-gray-1 border-gray-5 focus flex items-center justify-center rounded-full border py-2 ps-3 pe-2 select-none aria-disabled:opacity-40"
 				href={props.nextId && `/feeds/${props.feedId}?right=${props.nextId}`}
 			>
+				<span class="me-1 text-xs">next</span>
 				<IconChevronRight />
 			</Link>
 		</div>

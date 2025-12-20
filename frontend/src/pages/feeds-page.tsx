@@ -15,15 +15,14 @@ import { getFeeds } from "./feeds-page.data";
 
 export default function FeedsPage() {
 	return (
-		<main class="mx-auto max-w-[40rem]">
+		<main class="mx-auto max-w-[40rem] px-3">
 			<div class="mt-4 mb-8 flex items-center justify-between gap-2">
 				<h1 class="font-cool text-3xl font-medium">Feeds</h1>
 
 				<a
 					href="/feeds/new"
 					class={
-						buttonStyles({ variant: "ghost", size: "withIcon" }) +
-						" -m-3 inline-flex gap-3"
+						buttonStyles({ variant: "ghost", size: "withIcon" }) + " inline-flex gap-3"
 					}
 				>
 					<IconPlus class="inline" /> <span>New feed</span>
@@ -124,37 +123,46 @@ function FeedsList() {
 			{!feeds()?.length ? (
 				<p class="bg-gray-a2/60 p-4">No feeds yet</p>
 			) : (
-				<ul class="flex flex-col gap-1">
+				<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
 					{feeds()?.map((feed) => (
-						<li class="focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative -mx-4 flex flex-col gap-2 p-4">
+						<li class="focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative flex flex-col gap-2 p-3">
 							<a
 								href={`/feeds/${feed.id}`}
 								class="focus absolute top-0 left-0 h-full w-full"
 							></a>
-							<div class="flex items-center gap-3">
-								{feed.has_icon && <FeedIcon feedId={feed.id} class="size-6" />}
+							<div class="flex gap-3">
+								{feed.has_icon && (
+									<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
+										<FeedIcon feedId={feed.id} class="size-6" />
+									</div>
+								)}
 
-								<div class="flex items-center gap-2 font-medium">
-									<span class="font-cool inline text-[1.3rem] group-hover/feed:underline group-has-[a[id=site]:hover]/feed:no-underline">
-										{feed.title}
-									</span>
-									<a
-										id="site"
-										href={feed.site_url}
-										class="group/link text-gray-11 relative z-10 -m-4 p-4 text-xs outline-none"
-									>
-										<span class="in-focus:outline-gray-a10 underline group-hover/link:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
-											{feed.site_url
-												.replace(/^https?:\/\//, "")
-												.replace(/\/$/, "")}
+								<div class="flex flex-col gap-3 font-medium">
+									<div class="flex flex-col gap-1">
+										<span class="font-cool inline text-[1.3rem] group-hover/feed:underline group-has-[a[id=site]:hover]/feed:no-underline">
+											{feed.title}
 										</span>
-									</a>
+
+										<a
+											id="site"
+											href={feed.site_url}
+											class="group/link text-gray-11 relative z-10 -m-4 max-w-max p-4 text-xs outline-none"
+										>
+											<span class="in-focus:outline-gray-a10 underline group-hover/link:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
+												{feed.site_url
+													.replace(/^https?:\/\/www./, "")
+													.replace(/^https?:\/\//, "")
+													.replace(/\/$/, "")}
+											</span>
+										</a>
+									</div>
+
+									<p class="text-gray-11 text-sm">
+										{feed.entry_count} entries ({feed.unread_entry_count}{" "}
+										unread)
+									</p>
 								</div>
 							</div>
-
-							<p class="text-gray-11 text-sm">
-								{feed.entry_count} entries ({feed.unread_entry_count} unread)
-							</p>
 						</li>
 					))}
 				</ul>
