@@ -30,6 +30,7 @@ percent-encoding = "2.3.2"
 base64 = "0.22.1"
 dotenv = "0.15.0"
 envy = "0.4.2"
+futures = "0.3.31"
 
 [profile.release]
 strip = "debuginfo"

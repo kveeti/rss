@@ -1,3 +1,4 @@
+use futures::{StreamExt, stream};
 use std::cell::RefCell;
 use std::rc::Rc;
 use tokio::time::Duration;
@@ -636,7 +637,7 @@ fn hash_bytes(bytes: &[u8]) -> String {
     format!("{:x}", Sha256::digest(bytes))
 }
 
-static MAX_SYNCING_FEEDS: i64 = 10;
+static MAX_SYNCING_FEEDS: usize = 10;
 
 pub async fn feed_sync_loop(data: Data) -> anyhow::Result<()> {
     let mut ticker = tokio::time::interval(Duration::from_secs(60));
@@ -644,14 +645,8 @@ pub async fn feed_sync_loop(data: Data) -> anyhow::Result<()> {
     loop {
         ticker.tick().await;
 
-        let syncing_feeds_count = data.get_syncing_feeds_count().await?;
-        if syncing_feeds_count > MAX_SYNCING_FEEDS {
-            tracing::warn!("too many syncing feeds, skipping");
-            continue;
-        }
-
         let feeds = data
-            .get_feeds_to_sync(Utc::now() - chrono::Duration::hours(1), MAX_SYNCING_FEEDS)
+            .get_feeds_to_sync(Utc::now() - chrono::Duration::hours(1))
             .await?;
 
         if feeds.len() == 0 {
@@ -661,38 +656,47 @@ pub async fn feed_sync_loop(data: Data) -> anyhow::Result<()> {
 
         tracing::info!("syncing {} feeds", feeds.len());
 
-        for feed in feeds {
-            let result = get_feed(&feed.feed_url).await;
+        stream::iter(feeds)
+            .for_each_concurrent(MAX_SYNCING_FEEDS, |feed| {
+                let data = data.clone();
+                async move {
+                    sync_feed(&data, feed.feed_url).await;
+                }
+            })
+            .await;
+    }
+}
 
-            match result {
-                Ok(GetFeedResult::Feed {
-                    feed,
-                    entries,
-                    icon,
-                }) => {
-                    let _ = data
-                        .upsert_feed_and_entries_and_icon(&feed, entries, icon)
-                        .await
-                        .map_err(|e| tracing::error!("error upserting feed: {e:#}"));
+async fn sync_feed(data: &Data, url: String) {
+    let result = get_feed(&url).await;
 
-                    tracing::info!("feed synced {:?}", feed);
-                }
-                Ok(GetFeedResult::DiscoveredMultiple(feed_urls)) => {
-                    tracing::warn!("discovered multiple feeds: {feed_urls:?}");
-                }
-                Ok(GetFeedResult::NotFound) => {
-                    tracing::warn!("feed not found");
-                }
-                Ok(GetFeedResult::NotAllowed) => {
-                    tracing::warn!("feed not allowed");
-                }
-                Ok(GetFeedResult::Unknown { status, body }) => {
-                    tracing::warn!("unknown error fetching feed: {status}: {body}");
-                }
-                Err(e) => {
-                    tracing::error!("error getting feed: {}", e);
-                }
-            }
+    match result {
+        Ok(GetFeedResult::Feed {
+            feed,
+            entries,
+            icon,
+        }) => {
+            let _ = data
+                .upsert_feed_and_entries_and_icon(&feed, entries, icon)
+                .await
+                .map_err(|e| tracing::error!("error upserting feed: {e:#}"));
+
+            tracing::info!("feed synced {:?}", feed);
+        }
+        Ok(GetFeedResult::DiscoveredMultiple(feed_urls)) => {
+            tracing::warn!("discovered multiple feeds: {feed_urls:?}");
+        }
+        Ok(GetFeedResult::NotFound) => {
+            tracing::warn!("feed not found");
+        }
+        Ok(GetFeedResult::NotAllowed) => {
+            tracing::warn!("feed not allowed");
+        }
+        Ok(GetFeedResult::Unknown { status, body }) => {
+            tracing::warn!("unknown error fetching feed: {status}: {body}");
+        }
+        Err(e) => {
+            tracing::error!("error getting feed: {}", e);
         }
     }
 }
