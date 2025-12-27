@@ -8,7 +8,7 @@ use axum::{
 
 use crate::{
     api::{AppState, error::ApiError},
-    feed_loader::{GetFeedResult, get_feed},
+    feed_loader::{FeedResult, load_feed},
 };
 
 pub async fn sync_feed(
@@ -22,19 +22,19 @@ pub async fn sync_feed(
         .context("error getting feed to sync")?
         .ok_or(ApiError::NotFound("feed not found".to_string()))?;
 
-    let feed_res = get_feed(&feed.feed_url)
+    let feed_res = load_feed(&feed.feed_url)
         .await
-        .context("error getting feed")?;
+        .context("error loading feed")?;
 
     match feed_res {
-        GetFeedResult::Feed {
-            feed,
-            entries,
-            icon,
-        } => {
+        FeedResult::Loaded(loaded_feed) => {
             state
                 .data
-                .upsert_feed_and_entries_and_icon(&feed, entries, icon)
+                .upsert_feed_and_entries_and_icon(
+                    &loaded_feed.feed,
+                    loaded_feed.entries,
+                    loaded_feed.icon,
+                )
                 .await?;
 
             let feed = state

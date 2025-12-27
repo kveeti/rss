@@ -1,702 +1,581 @@
-use futures::{StreamExt, stream};
-use std::cell::RefCell;
-use std::rc::Rc;
-use tokio::time::Duration;
-
-use anyhow::Context;
-use base64::Engine;
-use chrono::{DateTime, Utc};
-use html5ever::{ParseOpts, parse_document, tendril::TendrilSink, tree_builder::TreeBuilderOpts};
-use markup5ever_rcdom::Node;
-use markup5ever_rcdom::{NodeData, RcDom};
 use once_cell::sync::Lazy;
-use percent_encoding::percent_decode_str;
-use reqwest::Client;
-use reqwest::StatusCode;
-use reqwest::redirect;
-use sha2::{Digest, Sha256};
+use reqwest::{Client, Response, StatusCode, redirect};
+use std::collections::HashMap;
+use std::time::Duration;
 use texting_robots::{Robot, get_robots_url};
-use tracing::debug;
-use tracing::warn;
 use url::Url;
 
-use crate::db::{Data, NewEntry, NewFeed, NewIcon};
+use crate::{
+    db::{NewEntry, NewFeed, NewIcon},
+    feed_loader::{feed::parse_feed, html::Html},
+};
 
-#[derive(Debug)]
-pub enum GetFeedResult {
-    DiscoveredMultiple(Vec<String>),
-    Feed {
-        feed: NewFeed,
-        entries: Vec<NewEntry>,
-        icon: Option<NewIcon>,
-    },
-    NotFound,
-    NotAllowed,
-    Unknown {
-        status: u16,
-        body: String,
-    },
-}
+mod feed;
+mod html;
+mod sync;
+pub use sync::*;
 
-#[derive(Debug, thiserror::Error)]
-pub enum GetFeedError {
-    #[error(transparent)]
-    UnexpectedError(#[from] anyhow::Error),
-
-    #[error("robots url determination error")]
-    RobotsDeterminingUrlError,
-
-    #[error("robots fetch error")]
-    RobotsFetchError,
-
-    #[error("robots parsing error")]
-    RobotsParsingError,
-
-    #[error("unexpected response, expected feed")]
-    UnexpectedFeed,
-
-    #[error("error fetching feed")]
-    FetchFeedError,
-
-    #[error("error parsing feed")]
-    ParseFeedError,
-}
-
-pub async fn get_feed(url: &str) -> Result<GetFeedResult, GetFeedError> {
-    debug!("feed requested: {}", url);
-
-    let url = if !url.starts_with("http") {
-        debug!("url doesn't have scheme, assuming https");
-        &format!("https://{}", url)
-    } else {
-        url
-    };
-
-    let robots_url = get_robots_url(url).map_err(|_| GetFeedError::RobotsDeterminingUrlError)?;
-    debug!("checking robots at {robots_url}");
-
-    let robots = CLIENT
-        .get(robots_url)
-        .send()
-        .await
-        .map_err(|_| GetFeedError::RobotsFetchError)?
-        .bytes()
-        .await
-        .map_err(|_| GetFeedError::RobotsParsingError)?;
-    let robots = Robot::new(USER_AGENT, &robots).map_err(|_| GetFeedError::RobotsParsingError)?;
-
-    let allowed = robots.allowed(url);
-    if !allowed {
-        debug!("not allowed to fetch {url}");
-        return Ok(GetFeedResult::NotAllowed);
-    }
-
-    let feed = fetch_feed(url).await.context("error fetching feed")?;
-    match feed {
-        FeedFetchResult::Feed { bytes, location } => {
-            let (parsed_feed, entries) =
-                parse_feed(&bytes, &url).map_err(|_| GetFeedError::ParseFeedError)?;
-            let feed = NewFeed {
-                title: parsed_feed.title,
-                site_url: parsed_feed.site_url,
-                feed_url: url.to_owned(),
-            };
-            Ok(GetFeedResult::Feed {
-                feed,
-                entries,
-                icon: discover_favicon(&location.origin().ascii_serialization())
-                    .await
-                    .ok()
-                    .flatten(),
-            })
+#[tracing::instrument(name = "load_feed")]
+pub async fn load_feed(url: &str) -> Result<FeedResult, FeedError> {
+    tracing::info!("loading feed");
+    let result = FeedLoader::new(url).run().await;
+    match &result {
+        Ok(FeedResult::Loaded(loaded)) => {
+            tracing::info!("successfully loaded feed: {}", loaded.feed.title)
         }
-        FeedFetchResult::Html { bytes, location } => {
-            let (feed_urls, maybe_favicon_url) =
-                discover_feed_and_favicon_url(&bytes, &url_to_string(&location))
-                    .context("error discovering feed and favicon from html")?;
-
-            if feed_urls.is_empty() {}
-
-            if feed_urls.len() == 1 {
-                let feed_url = &feed_urls[0];
-                let feed = &fetch_feed(feed_url).await.context("error fetching feed")?;
-                match feed {
-                    FeedFetchResult::Feed {
-                        bytes,
-                        location: new_location,
-                    } => {
-                        let new_origin = new_location.origin().ascii_serialization();
-                        let icon = if let Some(favicon_url) = maybe_favicon_url {
-                            get_favicon(&favicon_url).await.ok().flatten()
-                        } else if location.origin().ascii_serialization() != new_origin {
-                            // if we didn't find a favicon and didn't visit origin yet,
-                            // lets see if it has a favicon
-                            discover_favicon(&new_origin).await.ok().flatten()
-                        } else {
-                            None
-                        };
-
-                        let (parsed_feed, entries) = parse_feed(&bytes, &feed_url)
-                            .map_err(|_| GetFeedError::ParseFeedError)?;
-                        let feed = NewFeed {
-                            title: parsed_feed.title,
-                            site_url: parsed_feed.site_url,
-                            feed_url: feed_url.to_owned(),
-                        };
-                        Ok(GetFeedResult::Feed {
-                            feed,
-                            entries,
-                            icon,
-                        })
-                    }
-                    _ => Err(GetFeedError::UnexpectedFeed),
-                }
-            } else {
-                Ok(GetFeedResult::DiscoveredMultiple(feed_urls))
-            }
+        Ok(FeedResult::NeedsChoice(urls)) => {
+            tracing::debug!("feed discovery found {} options", urls.len())
         }
-        FeedFetchResult::NotFound => Ok(GetFeedResult::NotFound),
-        FeedFetchResult::Unknown { status, body } => Err(GetFeedError::UnexpectedError(
-            anyhow::anyhow!("unknown error fetching feed: {status}: {body}"),
-        )),
+        Ok(FeedResult::NotFound) => tracing::debug!("feed not found"),
+        Ok(FeedResult::Disallowed) => tracing::warn!("feed disallowed by robots.txt"),
+        Err(e) => tracing::error!("failed to load feed: {}", e),
     }
+    result
 }
 
-fn url_to_string(url: &Url) -> String {
-    format!(
-        "{origin}{path}",
-        origin = url.origin().ascii_serialization(),
-        path = url.path()
-    )
-}
-
-#[derive(Debug)]
-enum FeedFetchResult {
-    Feed { bytes: Vec<u8>, location: Url },
-    Html { bytes: Vec<u8>, location: Url },
-    NotFound,
-    Unknown { status: u16, body: String },
+#[tracing::instrument(name = "load_selected_feed")]
+pub async fn load_selected_feed(url: &str) -> Result<LoadedFeed, FeedError> {
+    tracing::info!("loading selected feed");
+    let result = FeedLoader::new_selected(url).run().await;
+    match &result {
+        Ok(loaded) => tracing::info!("successfully loaded selected feed: {}", loaded.feed.title),
+        Err(e) => tracing::error!("failed to load selected feed: {}", e),
+    }
+    result
 }
 
 const USER_AGENT: &str = "rss reader";
-
 static CLIENT: Lazy<Client> = Lazy::new(|| {
     Client::builder()
         .user_agent(USER_AGENT)
         .redirect(redirect::Policy::limited(10))
+        .timeout(Duration::from_secs(10))
         .build()
         .expect("client should be valid")
 });
 
-async fn fetch_feed(url: &str) -> anyhow::Result<FeedFetchResult> {
-    debug!("fetch requested for {url}");
+#[derive(Debug)]
+pub enum FeedResult {
+    Loaded(LoadedFeed),
+    NeedsChoice(Vec<String>),
+    NotFound,
+    Disallowed,
+}
 
-    let response = CLIENT
-        .get(url)
-        .send()
-        .await
-        .context("error executing request")?;
-    let status = response.status();
-    let location = response.url().to_owned();
+#[derive(Debug)]
+pub struct LoadedFeed {
+    pub feed: NewFeed,
+    pub entries: Vec<NewEntry>,
+    pub icon: Option<NewIcon>,
+}
 
-    match status {
-        StatusCode::NOT_FOUND => return Ok(FeedFetchResult::NotFound),
-        StatusCode::OK => {
-            let headers = response.headers().clone();
+#[derive(Debug, thiserror::Error)]
+pub enum FeedError {
+    #[error("invalid url")]
+    InvalidUrl,
 
-            let bytes = response.bytes().await.context("error reading response")?;
+    #[error("failed to fetch: {0}")]
+    Fetch(FetchError),
 
-            let content_type = headers
-                .get("Content-Type")
-                .context("no content type found")?
-                .to_str()
-                .context("invalid content type")?;
-            debug!(
-                "got {n} bytes with content type {content_type}",
-                n = bytes.len()
-            );
-            if content_type.starts_with("text/html") {
-                return Ok(FeedFetchResult::Html {
-                    bytes: bytes.to_vec(),
-                    location,
-                });
-            }
+    #[error("got unexpected response: {0}")]
+    UnexpectedResponse(#[from] reqwest::Error),
 
-            if content_type.starts_with("text/xml")
-                || content_type.starts_with("application/rss+xml")
-                || content_type.starts_with("application/atom+xml")
-                || content_type.starts_with("application/xml")
-            {
-                return Ok(FeedFetchResult::Feed {
-                    bytes: bytes.to_vec(),
-                    location,
-                });
-            }
+    #[error("failed to parse feed")]
+    Parse,
 
-            return Ok(FeedFetchResult::Unknown {
-                body: String::from_utf8_lossy(&bytes).to_string(),
-                status: status.as_u16(),
-            });
-        }
-        _ => {
-            return Ok(FeedFetchResult::Unknown {
-                body: response.text().await.context("error reading response")?,
-                status: status.as_u16(),
-            });
-        }
+    #[error("expected feed but got html")]
+    UnexpectedHtml,
+
+    #[error("not found")]
+    NotFound,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum FetchError {
+    #[error("invalid url")]
+    InvalidUrl,
+
+    #[error("network error: {0}")]
+    Network(reqwest::Error),
+
+    #[error("disallowed by robots.txt")]
+    Disallowed,
+
+    #[error("error fetching robots.txt")]
+    RobotsFetchFailed,
+
+    #[error("error parsing robots.txt")]
+    RobotsParseFailed,
+}
+
+impl From<reqwest::Error> for FetchError {
+    fn from(e: reqwest::Error) -> Self {
+        FetchError::Network(e)
     }
 }
 
-fn parse_feed(bytes: &[u8], feed_url: &str) -> anyhow::Result<(ParsedFeed, Vec<NewEntry>)> {
-    debug!("parsing feed as RSS");
-    let feed = parse_rss(bytes).or_else(|_| {
-        debug!("failed to parse as RSS, parsing as Atom");
-        parse_atom(bytes, feed_url).map_err(|_| anyhow::anyhow!("failed to parse as Atom"))
-    })?;
-    debug!("parsed feed");
+enum Content {
+    Feed { bytes: Vec<u8>, final_url: Url },
+    Html { bytes: Vec<u8>, final_url: Url },
+    NotFound,
+}
 
-    // not using skipped for anything yet
-    Ok((feed.0, feed.1))
+struct Initial;
+struct Selected;
+
+struct FetchedHtml {
+    bytes: Vec<u8>,
+    final_url: Url,
+}
+
+struct FetchedFeed {
+    bytes: Vec<u8>,
+    final_url: Url,
 }
 
 struct ParsedFeed {
+    meta: FeedMeta,
+    entries: Vec<NewEntry>,
+    final_url: Url,
+}
+
+struct FeedMeta {
     title: String,
     site_url: Option<String>,
 }
 
-fn parse_rss(bytes: &[u8]) -> anyhow::Result<(ParsedFeed, Vec<NewEntry>, usize)> {
-    let parsed = rss::Channel::read_from(bytes)?;
-    let (entries, skipped) =
-        parsed
-            .items
-            .iter()
-            .fold((Vec::new(), 0usize), |(mut entries, mut skipped), item| {
-                let title = match &item.title {
-                    Some(title) => {
-                        if title.trim().is_empty() {
-                            warn!("title is empty for item {item:?}, skipping...");
-                            skipped += 1;
-                            return (entries, skipped);
-                        }
-                        title.to_string()
-                    }
-                    None => {
-                        warn!("no title found for item {item:?}, skipping...");
-                        skipped += 1;
-                        return (entries, skipped);
-                    }
-                };
-
-                let url = match item.link.to_owned() {
-                    Some(url) => url,
-                    None => {
-                        warn!("no link found for item {item:?}, skipping...");
-                        skipped += 1;
-                        return (entries, skipped);
-                    }
-                };
-
-                entries.push(NewEntry {
-                    title,
-                    url,
-                    published_at: item
-                        .pub_date
-                        .to_owned()
-                        .map(|date| DateTime::parse_from_rfc2822(&date).unwrap().into()),
-                    comments_url: item
-                        .comments
-                        .to_owned()
-                        .map(|comments| comments.to_string()),
-                });
-
-                (entries, skipped)
-            });
-
-    Ok((
-        ParsedFeed {
-            title: parsed.title.to_string(),
-            site_url: Some(parsed.link.to_owned()),
-        },
-        entries,
-        skipped,
-    ))
+enum Fetched {
+    Feed(FeedLoader<FetchedFeed>),
+    Html(FeedLoader<FetchedHtml>),
+    NotFound,
 }
 
-fn parse_atom(bytes: &[u8], feed_url: &str) -> anyhow::Result<(ParsedFeed, Vec<NewEntry>, usize)> {
-    let parsed = atom_syndication::Feed::read_from(bytes)?;
-
-    let (entries, skipped) =
-        parsed
-            .entries
-            .iter()
-            .fold((Vec::new(), 0usize), |(mut entries, mut skipped), entry| {
-                let title = entry.title.to_owned().value.to_string();
-                if title.trim().is_empty() {
-                    warn!("title is empty for entry {entry:?}, skipping...");
-                    skipped += 1;
-                    return (entries, skipped);
-                }
-
-                let url = match entry.links.first().map(|link| link.href.clone()) {
-                    Some(url) => url,
-                    None => {
-                        warn!("no link found for entry {entry:?}, skipping...");
-                        skipped += 1;
-                        return (entries, skipped);
-                    }
-                };
-
-                entries.push(NewEntry {
-                    title,
-                    url,
-                    published_at: entry.published.map(|published| published.to_utc()),
-                    comments_url: None,
-                });
-                (entries, skipped)
-            });
-
-    let site_url = parsed
-        .links
-        .iter()
-        .find(|link| link.rel == "alternate")
-        .or(parsed.links.iter().find(|link| link.href != feed_url))
-        .map(|link| link.href.to_owned());
-
-    Ok((
-        ParsedFeed {
-            title: parsed.title.to_string(),
-            site_url,
-        },
-        entries,
-        skipped,
-    ))
+enum SelectedFetched {
+    Feed(FeedLoader<FetchedFeed>),
+    NotFound,
 }
 
-fn discover_feed_and_favicon_url(
-    mut bytes: &[u8],
-    url: &str,
-) -> anyhow::Result<(Vec<String>, Option<String>)> {
-    let dom = parse_document(
-        RcDom::default(),
-        ParseOpts {
-            tree_builder: TreeBuilderOpts {
-                drop_doctype: true,
-                ..Default::default()
-            },
-            ..Default::default()
-        },
-    )
-    .from_utf8()
-    .read_from(&mut bytes)
-    .context("error parsing HTML")?;
-
-    let head_children = get_head_children(&dom)?.into_inner();
-
-    let feed_links = head_children
-        .iter()
-        .filter_map(|child| match &child.data {
-            NodeData::Element { name, attrs, .. } => {
-                if name.local.as_ref() == "link" {
-                    attrs
-                        .borrow()
-                        .iter()
-                        .find(|attr| {
-                            attr.name.local.as_ref() == "href"
-                                && (attr.value.as_ref().contains("rss")
-                                    || attr.value.as_ref().contains("atom"))
-                        })
-                        .map(|attr| attr.value.to_string())
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .map(|href| {
-            // if href is a relative URL, make it absolute
-            if !href.starts_with("http") {
-                format!(
-                    "{}/{}",
-                    url.trim_end_matches("/"),
-                    href.trim_start_matches('/')
-                )
-            } else {
-                href
-            }
-        })
-        .collect::<Vec<String>>();
-    debug!("found {} feed links", feed_links.len());
-
-    let favicon_url = get_best_favicon_url(&head_children, url);
-    debug!("found favicon url {favicon_url:?}");
-
-    Ok((feed_links, favicon_url))
+struct FeedLoader<S> {
+    robots: HashMap<String, Robot>,
+    url: String,
+    state: S,
 }
 
-async fn discover_favicon(url: &str) -> anyhow::Result<Option<NewIcon>> {
-    debug!("discovering favicon from {url}");
-
-    let bytes = CLIENT
-        .get(url)
-        .send()
-        .await
-        .context("error executing request")?
-        .bytes()
-        .await
-        .context("error reading response")?;
-
-    let url = discover_favicon_url_from_html(&bytes[..], &url)?;
-    if let Some(url) = url {
-        return Ok(get_favicon(&url).await?);
+impl FeedLoader<Initial> {
+    fn new(url: &str) -> Self {
+        Self {
+            robots: HashMap::new(),
+            url: ensure_scheme(url),
+            state: Initial,
+        }
     }
 
-    Ok(None)
+    async fn run(self) -> Result<FeedResult, FeedError> {
+        match self.fetch().await? {
+            Fetched::NotFound => Ok(FeedResult::NotFound),
+            Fetched::Feed(loader) => loader.run().await.map(FeedResult::Loaded),
+            Fetched::Html(loader) => loader.run().await,
+        }
+    }
+
+    async fn fetch(mut self) -> Result<Fetched, FeedError> {
+        let url = self.url.clone();
+        tracing::debug!("fetching url: {}", url);
+        let response = self.do_fetch(&url).await.map_err(|e| FeedError::Fetch(e))?;
+
+        Ok(match classify_response(response).await? {
+            Content::NotFound => {
+                tracing::debug!("content not found");
+                Fetched::NotFound
+            }
+            Content::Feed { bytes, final_url } => {
+                tracing::debug!(
+                    "fetched feed content ({} bytes, final_url: {})",
+                    bytes.len(),
+                    final_url
+                );
+                Fetched::Feed(self.into_state(FetchedFeed { bytes, final_url }))
+            }
+            Content::Html { bytes, final_url } => {
+                tracing::debug!(
+                    "fetched html content ({} bytes, final_url: {})",
+                    bytes.len(),
+                    final_url
+                );
+                Fetched::Html(self.into_state(FetchedHtml { bytes, final_url }))
+            }
+        })
+    }
 }
 
-// must be its own non-async function
-// because "`Rc<markup5ever_rcdom::Node>` cannot be sent between threads safely"
-fn discover_favicon_url_from_html(bytes: &[u8], url: &str) -> anyhow::Result<Option<String>> {
-    let dom = parse_document(
-        RcDom::default(),
-        ParseOpts {
-            tree_builder: TreeBuilderOpts {
-                drop_doctype: true,
-                ..Default::default()
+impl FeedLoader<Selected> {
+    fn new_selected(url: &str) -> Self {
+        Self {
+            robots: HashMap::new(),
+            url: ensure_scheme(url),
+            state: Selected,
+        }
+    }
+
+    async fn run(self) -> Result<LoadedFeed, FeedError> {
+        match self.fetch().await? {
+            SelectedFetched::NotFound => Err(FeedError::NotFound),
+            SelectedFetched::Feed(loader) => loader.run().await,
+        }
+    }
+
+    async fn fetch(mut self) -> Result<SelectedFetched, FeedError> {
+        let url = self.url.clone();
+        tracing::debug!("fetching selected url: {}", url);
+        let response = self.do_fetch(&url).await.map_err(|e| FeedError::Fetch(e))?;
+
+        match classify_response(response).await? {
+            Content::Feed { bytes, final_url } => {
+                tracing::debug!("fetched selected feed content ({} bytes)", bytes.len());
+                Ok(SelectedFetched::Feed(
+                    self.into_state(FetchedFeed { bytes, final_url }),
+                ))
+            }
+            Content::Html { .. } => {
+                tracing::warn!("expected feed but got html");
+                Err(FeedError::UnexpectedHtml)
+            }
+            Content::NotFound => {
+                tracing::debug!("selected feed not found");
+                Ok(SelectedFetched::NotFound)
+            }
+        }
+    }
+}
+
+impl FeedLoader<FetchedHtml> {
+    async fn run(self) -> Result<FeedResult, FeedError> {
+        let feed_urls = self.discover_feeds();
+
+        match feed_urls.as_slice() {
+            [] => Ok(FeedResult::NotFound),
+            [single_url] => self
+                .select(single_url.to_owned())
+                .run()
+                .await
+                .map(FeedResult::Loaded),
+            _ => Ok(FeedResult::NeedsChoice(feed_urls)),
+        }
+    }
+
+    fn discover_feeds(&self) -> Vec<String> {
+        let origin = self.state.final_url.origin().ascii_serialization();
+        let html = Html::from_bytes(&self.state.bytes);
+
+        let feed_urls: Vec<String> = html
+            .feed_urls()
+            .iter()
+            .map(|href| absolutize(href, &origin))
+            .collect();
+
+        tracing::debug!("discovered {} feed urls from html", feed_urls.len());
+        tracing::trace!("discovered feeds: {:?}", feed_urls);
+
+        feed_urls
+    }
+
+    fn select(self, feed_url: String) -> FeedLoader<Selected> {
+        FeedLoader {
+            robots: self.robots,
+            url: feed_url,
+            state: Selected,
+        }
+    }
+}
+
+impl FeedLoader<FetchedFeed> {
+    async fn run(self) -> Result<LoadedFeed, FeedError> {
+        self.parse()?.run().await
+    }
+
+    fn parse(self) -> Result<FeedLoader<ParsedFeed>, FeedError> {
+        tracing::debug!("parsing feed content ({} bytes)", self.state.bytes.len());
+        let (meta, entries) = parse_feed(&self.state.bytes, &self.url).map_err(|e| {
+            tracing::error!("failed to parse feed: {:?}", e);
+            FeedError::Parse
+        })?;
+
+        tracing::debug!(
+            "parsed feed '{}' with {} entries",
+            meta.title,
+            entries.len()
+        );
+
+        let final_url = self.state.final_url.to_owned();
+
+        Ok(self.into_state(ParsedFeed {
+            meta: FeedMeta {
+                title: meta.title,
+                site_url: meta.site_url,
             },
-            ..Default::default()
-        },
-    )
-    .from_utf8()
-    .read_from(&mut &bytes[..])
-    .context("error parsing HTML")?;
-
-    let url = get_best_favicon_url(&get_head_children(&dom)?.into_inner(), url);
-
-    Ok(url)
+            entries,
+            final_url,
+        }))
+    }
 }
 
-async fn get_favicon(url: &str) -> anyhow::Result<Option<NewIcon>> {
-    if url.starts_with("data:") {
-        let parts = url.split(",").collect::<Vec<&str>>();
-        if parts.len() < 2 {
-            warn!("invalid data url {url}");
-            return Ok(None);
+impl FeedLoader<ParsedFeed> {
+    async fn run(mut self) -> Result<LoadedFeed, FeedError> {
+        let icon = self.load_favicon().await;
+        Ok(self.finish(icon))
+    }
+
+    fn finish(self, icon: Option<NewIcon>) -> LoadedFeed {
+        LoadedFeed {
+            feed: NewFeed {
+                title: self.state.meta.title,
+                site_url: self.state.meta.site_url,
+                feed_url: self.url,
+            },
+            entries: self.state.entries,
+            icon,
+        }
+    }
+
+    async fn load_favicon(&mut self) -> Option<NewIcon> {
+        let origin = self
+            .state
+            .meta
+            .site_url
+            .as_deref()
+            .unwrap_or(&self.state.final_url.origin().ascii_serialization())
+            .to_owned();
+
+        tracing::debug!("loading favicon from origin: {}", origin);
+
+        let response = self.do_fetch(&origin).await.ok()?;
+        let bytes = response.bytes().await.ok()?;
+        let favicon_urls = {
+            let html = Html::from_bytes(&bytes);
+            html.favicon_urls()
+        };
+
+        tracing::trace!("found {} favicon candidates", favicon_urls.len());
+
+        for href in favicon_urls {
+            let url = absolutize(&href, &origin);
+            tracing::trace!("trying favicon url: {}", url);
+
+            if let Some(icon) = parse_data_url(&url) {
+                tracing::debug!("loaded favicon from data url");
+                return Some(icon);
+            }
+
+            if let Some(icon) = self.fetch_icon(&url).await {
+                tracing::debug!("loaded favicon from: {}", url);
+                return Some(icon);
+            }
         }
 
-        let header = parts[0];
-        let content_type = header.split(':').nth(1).and_then(|mt| mt.split(';').next());
-
-        let content_type = match content_type {
-            Some(ct) => ct,
-            None => {
-                warn!("invalid data url, no content type {url}");
-                return Ok(None);
-            }
-        };
-
-        let is_base64 = header.contains("base64");
-
-        debug!("discovered icon as data url with content type {content_type:?}");
-
-        let content = parts[1];
-        let content = if is_base64 {
-            base64::engine::general_purpose::STANDARD
-                .decode(content)
-                .context("error decoding data url as base64")?
-        } else {
-            percent_decode_str(content)
-                .decode_utf8()
-                .context("error decoding data url with utf8 percent encoding")?
-                .as_bytes()
-                .to_vec()
-        };
-
-        return Ok(Some(NewIcon {
-            hash: hash_bytes(&content),
-            data: content,
-            content_type: content_type.to_string(),
-        }));
-    } else if url.starts_with("http") {
-        debug!("discovered icon as url {url}");
-        let icon = fetch_favicon(&url).await?;
-        return Ok(icon);
+        tracing::debug!("no favicon found");
+        None
     }
 
-    Ok(None)
+    async fn fetch_icon(&mut self, url: &str) -> Option<NewIcon> {
+        if !url.starts_with("http") {
+            tracing::trace!("skipping non-http favicon url: {}", url);
+            return None;
+        }
+
+        let response = self.do_fetch(url).await.ok()?;
+
+        if response.status() != StatusCode::OK {
+            tracing::trace!("favicon fetch failed with status: {}", response.status());
+            return None;
+        }
+
+        let content_type = response
+            .headers()
+            .get("content-type")?
+            .to_str()
+            .ok()?
+            .to_owned();
+
+        if !content_type.starts_with("image/") {
+            tracing::trace!("favicon has non-image content-type: {}", content_type);
+            return None;
+        }
+
+        let bytes = response.bytes().await.ok()?;
+        tracing::trace!(
+            "fetched favicon ({} bytes, type: {})",
+            bytes.len(),
+            content_type
+        );
+
+        Some(NewIcon {
+            hash: hash_bytes(&bytes),
+            data: bytes.to_vec(),
+            content_type,
+        })
+    }
 }
 
-fn get_head_children(dom: &RcDom) -> anyhow::Result<RefCell<Vec<Rc<Node>>>> {
-    Ok(dom
-        .document
-        .children
-        .borrow()
-        .iter()
-        .find(|child| match &child.data {
-            NodeData::Element { name, .. } => name.local.as_ref() == "html",
-            _ => false,
-        })
-        .ok_or_else(|| anyhow::anyhow!("no html element found"))?
-        .children
-        .borrow()
-        .iter()
-        .find(|child| match &child.data {
-            NodeData::Element { name, .. } => name.local.as_ref() == "head",
-            _ => false,
-        })
-        .ok_or_else(|| anyhow::anyhow!("no head element found"))?
-        .children
-        .clone())
+impl<S> FeedLoader<S> {
+    fn into_state<T>(self, state: T) -> FeedLoader<T> {
+        FeedLoader {
+            robots: self.robots,
+            url: self.url,
+            state,
+        }
+    }
+
+    async fn do_fetch(&mut self, url: &str) -> Result<Response, FetchError> {
+        tracing::trace!("fetching: {}", url);
+
+        if !self.is_allowed(url).await? {
+            tracing::warn!("fetch disallowed by robots.txt: {}", url);
+            return Err(FetchError::Disallowed);
+        }
+
+        let response = CLIENT.get(url).send().await.map_err(FetchError::Network)?;
+        tracing::trace!("fetch completed with status: {}", response.status());
+
+        Ok(response)
+    }
+
+    async fn is_allowed(&mut self, url: &str) -> Result<bool, FetchError> {
+        let origin = Url::parse(url)
+            .map_err(|_| FetchError::InvalidUrl)?
+            .origin()
+            .ascii_serialization();
+
+        if let Some(robot) = self.robots.get(&origin) {
+            let allowed = robot.allowed(url);
+            tracing::trace!("robots.txt check (cached): {url} -> {allowed}");
+            return Ok(allowed);
+        }
+
+        let robots_url = get_robots_url(url).map_err(|_| FetchError::InvalidUrl)?;
+        tracing::trace!("fetching robots.txt from: {robots_url}");
+
+        let robotstxt = CLIENT
+            .get(robots_url)
+            .send()
+            .await
+            .map_err(|_| FetchError::RobotsFetchFailed)?
+            .bytes()
+            .await
+            .map_err(|_| FetchError::RobotsParseFailed)?;
+
+        let robot =
+            Robot::new(USER_AGENT, &robotstxt).map_err(|_| FetchError::RobotsParseFailed)?;
+
+        let allowed = robot.allowed(url);
+        tracing::trace!("robots.txt check: {} -> {}", url, allowed);
+        self.robots.insert(origin, robot);
+
+        Ok(allowed)
+    }
 }
 
-const ICON_RELS: &[&str] = &["icon", "shortcut icon", "apple-touch-icon"];
-
-fn get_best_favicon_url(head_children: &Vec<Rc<Node>>, url: &str) -> Option<String> {
-    head_children
-        .iter()
-        .filter_map(|child| match &child.data {
-            NodeData::Element { name, attrs, .. } => {
-                if name.local.as_ref() == "link" {
-                    let rel_value = attrs
-                        .borrow()
-                        .iter()
-                        .find(|attr| attr.name.local.as_ref() == "rel")
-                        .map(|attr| attr.value.to_string());
-
-                    if let Some(rel_value) = rel_value
-                        && ICON_RELS.contains(&rel_value.as_str())
-                    {
-                        let href = attrs
-                            .borrow()
-                            .iter()
-                            .find(|attr| attr.name.local.as_ref() == "href")
-                            .map(|attr| attr.value.to_string());
-
-                        href
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .map(|href| {
-            // if href is a relative URL, make it absolute
-            if !href.starts_with("http") && !href.starts_with("data:") {
-                format!(
-                    "{}/{}",
-                    url.trim_end_matches("/"),
-                    href.trim_start_matches('/')
-                )
-            } else {
-                href
-            }
-        })
-        .collect::<Vec<String>>()
-        .first()
-        .cloned()
-}
-
-async fn fetch_favicon(url: &str) -> anyhow::Result<Option<NewIcon>> {
-    debug!("fetching favicon from {url}");
-    let response = CLIENT
-        .get(url)
-        .send()
-        .await
-        .context("error executing request")?;
+async fn classify_response(response: Response) -> Result<Content, FeedError> {
     let status = response.status();
+    let final_url = response.url().to_owned();
+
+    tracing::trace!("classifying response: status={status}, url={final_url}");
 
     match status {
+        StatusCode::NOT_FOUND => {
+            tracing::trace!("classified as not found");
+            Ok(Content::NotFound)
+        }
+
         StatusCode::OK => {
-            let headers = response.headers().clone();
-            let bytes = response.bytes().await.context("error reading response")?;
-            let content_type = headers
-                .get("Content-Type")
-                .context("no content type found")?
-                .to_str()
-                .context("invalid content type")?
+            let content_type = response
+                .headers()
+                .get("content-type")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("")
                 .to_string();
-            debug!("got favicon response with content type {content_type}");
-            if content_type.starts_with("image/") {
-                Ok(Some(NewIcon {
-                    hash: hash_bytes(&bytes),
-                    data: bytes.to_vec(),
-                    content_type: content_type,
-                }))
+
+            let bytes = response.bytes().await?.to_vec();
+
+            if content_type.starts_with("text/html") {
+                tracing::trace!("classified as html (content-type: {content_type})");
+                Ok(Content::Html { bytes, final_url })
+            } else if is_feed_content_type(&content_type) {
+                tracing::trace!("classified as feed (content-type: {content_type})");
+                Ok(Content::Feed { bytes, final_url })
             } else {
-                Err(anyhow::anyhow!("invalid content type: {content_type}"))
+                // Unknown: assume feed, let parse fail if not
+                tracing::trace!("unknown content-type '{content_type}', assuming feed");
+                Ok(Content::Feed { bytes, final_url })
             }
         }
-        StatusCode::NOT_FOUND => Ok(None),
-        _ => Err(anyhow::anyhow!("unknown: {status}")),
+
+        _ => {
+            tracing::warn!("unexpected response status: {}", status);
+            Err(FeedError::UnexpectedResponse(
+                response.error_for_status().unwrap_err(),
+            ))
+        }
     }
+}
+
+fn is_feed_content_type(content_type: &str) -> bool {
+    content_type.starts_with("text/xml")
+        || content_type.starts_with("application/xml")
+        || content_type.starts_with("application/rss+xml")
+        || content_type.starts_with("application/atom+xml")
+}
+
+fn ensure_scheme(url: &str) -> String {
+    if url.starts_with("http") {
+        url.to_owned()
+    } else {
+        format!("https://{url}")
+    }
+}
+
+fn absolutize(href: &str, origin: &str) -> String {
+    if href.starts_with("http") || href.starts_with("data:") {
+        href.to_owned()
+    } else {
+        format!(
+            "{}/{}",
+            origin.trim_end_matches('/'),
+            href.trim_start_matches('/')
+        )
+    }
+}
+
+fn parse_data_url(url: &str) -> Option<NewIcon> {
+    use base64::Engine;
+    use percent_encoding::percent_decode_str;
+
+    if !url.starts_with("data:") {
+        return None;
+    }
+
+    let (header, content) = url.split_once(',')?;
+    let content_type = header.split(':').nth(1)?.split(';').next()?;
+
+    let data = if header.contains("base64") {
+        base64::engine::general_purpose::STANDARD
+            .decode(content)
+            .ok()?
+    } else {
+        percent_decode_str(content)
+            .decode_utf8()
+            .ok()?
+            .as_bytes()
+            .to_vec()
+    };
+
+    Some(NewIcon {
+        hash: hash_bytes(&data),
+        data,
+        content_type: content_type.to_owned(),
+    })
 }
 
 fn hash_bytes(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
     format!("{:x}", Sha256::digest(bytes))
-}
-
-static MAX_SYNCING_FEEDS: usize = 10;
-
-pub async fn feed_sync_loop(data: Data) -> anyhow::Result<()> {
-    let mut ticker = tokio::time::interval(Duration::from_secs(60));
-
-    loop {
-        ticker.tick().await;
-
-        let feeds = data
-            .get_feeds_to_sync(Utc::now() - chrono::Duration::hours(1))
-            .await?;
-
-        if feeds.len() == 0 {
-            tracing::info!("no feeds to sync");
-            continue;
-        }
-
-        tracing::info!("syncing {} feeds", feeds.len());
-
-        stream::iter(feeds)
-            .for_each_concurrent(MAX_SYNCING_FEEDS, |feed| {
-                let data = data.clone();
-                async move {
-                    sync_feed(&data, feed.feed_url).await;
-                }
-            })
-            .await;
-    }
-}
-
-async fn sync_feed(data: &Data, url: String) {
-    let result = get_feed(&url).await;
-
-    match result {
-        Ok(GetFeedResult::Feed {
-            feed,
-            entries,
-            icon,
-        }) => {
-            let _ = data
-                .upsert_feed_and_entries_and_icon(&feed, entries, icon)
-                .await
-                .map_err(|e| tracing::error!("error upserting feed: {e:#}"));
-
-            tracing::info!("feed synced {:?}", feed);
-        }
-        Ok(GetFeedResult::DiscoveredMultiple(feed_urls)) => {
-            tracing::warn!("discovered multiple feeds: {feed_urls:?}");
-        }
-        Ok(GetFeedResult::NotFound) => {
-            tracing::warn!("feed not found");
-        }
-        Ok(GetFeedResult::NotAllowed) => {
-            tracing::warn!("feed not allowed");
-        }
-        Ok(GetFeedResult::Unknown { status, body }) => {
-            tracing::warn!("unknown error fetching feed: {status}: {body}");
-        }
-        Err(e) => {
-            tracing::error!("error getting feed: {}", e);
-        }
-    }
 }
