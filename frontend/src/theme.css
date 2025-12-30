@@ -11,8 +11,10 @@
 @theme {
 	--color-*: initial;
 	--spacing: 0.25rem;
-	--font-default: "JetBrainsMono Nerd Font", "JetBrainsMono", jbmono, monospace;
-	--font-cool: "Crimson Pro", crimsonprovar, serif;
+	--font-*: initial;
+
+	--font-normal: jbmono, "JetBrains Mono", "JetBrains Mono Nerd Font", jbmonofb, monospace;
+	--font-cool: crimsonprovar, "Crimson Pro", crimsonprovarfb, serif;
 
 	--color-white: #ffffff;
 
