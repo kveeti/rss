@@ -26,7 +26,7 @@ backpreview:
 preview: backpreview frontpreview
 
 dbreset:
-	@cargo sqlx db reset --force --source ./backend/db/migrations
+	@cargo sqlx db reset --force --source ./backend/src/db/migrations
 
 dbnewmigration:
 	@cargo sqlx migrate add --source ./backend/db/migrations
