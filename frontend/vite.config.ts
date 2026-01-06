@@ -1,9 +1,22 @@
 import devtools from "solid-devtools/vite";
 import { defineConfig } from "vite";
+import { VitePWA } from "vite-plugin-pwa";
 import solidPlugin from "vite-plugin-solid";
 
 export default defineConfig({
-	plugins: [devtools(), solidPlugin()],
+	plugins: [
+		devtools(),
+		solidPlugin(),
+		VitePWA({
+			registerType: "autoUpdate",
+			devOptions: {
+				enabled: true,
+			},
+			workbox: {
+				globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot}"],
+			},
+		}),
+	],
 	build: {
 		target: "esnext",
 	},

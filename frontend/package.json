@@ -22,6 +22,7 @@
 	},
 	"dependencies": {
 		"@solidjs/router": "^0.15.1",
-		"solid-js": "^1.9.5"
+		"solid-js": "^1.9.5",
+		"vite-plugin-pwa": "^1.2.0"
 	}
 }
