@@ -4,6 +4,7 @@ import { For, Ref, Show, createSignal } from "solid-js";
 import { Button, buttonStyles } from "../components/button";
 import { IconInfo } from "../components/icons/info";
 import { Input } from "../components/input";
+import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { api } from "../lib/api";
 
 type States =
@@ -93,69 +94,85 @@ export default function NewFeedPage() {
 	}
 
 	return (
-		<main class="mx-auto max-w-[20rem]">
-			<h1 class="font-cool mt-4 mb-8 text-3xl font-medium">New Feed</h1>
+		<>
+			<NavWrap>
+				<Nav>
+					<DefaultNavLinks />
+				</Nav>
+			</NavWrap>
 
-			<form
-				class="space-y-4"
-				onSubmit={onSubmit}
-				ref={
-					// @ts-expect-error
-					formRef
-				}
-			>
-				<div class="flex flex-col gap-2">
-					<Input
-						label="URL"
-						type="text"
-						name="url"
+			<Page>
+				<main class="mx-auto max-w-[20rem]">
+					<h1 class="font-cool mt-4 mb-8 text-3xl font-medium">New Feed</h1>
+
+					<form
+						class="space-y-4"
+						onSubmit={onSubmit}
 						ref={
 							// @ts-expect-error
-							inputRef
+							formRef
 						}
-						required
-					/>
-				</div>
+					>
+						<div class="flex flex-col gap-2">
+							<Input
+								label="URL"
+								type="text"
+								name="url"
+								ref={
+									// @ts-expect-error
+									inputRef
+								}
+								required
+							/>
+						</div>
 
-				<div class="flex justify-between gap-2">
-					<a type="button" class={buttonStyles({ variant: "ghost" })} href="/feeds">
-						Back
-					</a>
+						<div class="flex justify-between gap-2">
+							<a
+								type="button"
+								class={buttonStyles({ variant: "ghost" })}
+								href="/feeds"
+							>
+								Back
+							</a>
 
-					<Button type="submit" isLoading={state().loading}>
-						{state().phase === "only_one_similar_feed" ? "Add anyway" : "Submit"}
-					</Button>
-				</div>
-			</form>
+							<Button type="submit" isLoading={state().loading}>
+								{state().phase === "only_one_similar_feed"
+									? "Add anyway"
+									: "Submit"}
+							</Button>
+						</div>
+					</form>
 
-			<Show when={state().similar_feed_url}>
-				<div class="border-gray-a2 border-gray-a9 mt-4 flex gap-2 border-l-3 py-1 pl-2">
-					<div class="size-6">
-						<IconInfo />
-					</div>
+					<Show when={state().similar_feed_url}>
+						<div class="border-gray-a2 border-gray-a9 mt-4 flex gap-2 border-l-3 py-1 pl-2">
+							<div class="size-6">
+								<IconInfo />
+							</div>
 
-					<div>
-						<p class="mb-2 text-sm">
-							<b>NOTE:</b> Feed with similar URL already saved:
-						</p>
-						<code>{state().similar_feed_url}</code>
-					</div>
-				</div>
-			</Show>
+							<div>
+								<p class="mb-2 text-sm">
+									<b>NOTE:</b> Feed with similar URL already saved:
+								</p>
+								<code>{state().similar_feed_url}</code>
+							</div>
+						</div>
+					</Show>
 
-			<Show when={state().phase === "discovered_multiple"}>
-				<DiscoveredMultiple
-					feed_urls={
-						// @ts-expect-error
-						state().feed_urls
-					}
-					onClick={(url) => {
-						// @ts-expect-error
-						inputRef.value = url;
-					}}
-				/>
-			</Show>
-		</main>
+					<Show when={state().phase === "discovered_multiple"}>
+						<DiscoveredMultiple
+							feed_urls={
+								// @ts-expect-error
+								state().feed_urls
+							}
+							onClick={(url) => {
+								// @ts-expect-error
+								inputRef.value = url;
+							}}
+						/>
+					</Show>
+				</main>
+			</Page>
+		</>
 	);
 }
 

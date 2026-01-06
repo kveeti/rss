@@ -11,26 +11,38 @@ import {
 import { Button, buttonStyles } from "../components/button";
 import { FeedIcon } from "../components/feed-icon";
 import { IconPlus } from "../components/icons/plus";
+import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { getFeeds } from "./feeds-page.data";
 
 export default function FeedsPage() {
 	return (
-		<main class="mx-auto max-w-[40rem] px-3">
-			<div class="mt-4 mb-8 flex items-center justify-between gap-2">
-				<h1 class="font-cool text-3xl font-medium">Feeds</h1>
+		<>
+			<NavWrap>
+				<Nav>
+					<DefaultNavLinks />
+				</Nav>
+			</NavWrap>
 
-				<a
-					href="/feeds/new"
-					class={
-						buttonStyles({ variant: "ghost", size: "withIcon" }) + " inline-flex gap-3"
-					}
-				>
-					<IconPlus class="inline" /> <span>New feed</span>
-				</a>
-			</div>
+			<Page>
+				<main class="mx-auto max-w-[40rem] px-3">
+					<div class="mb-4 flex items-center justify-between gap-2">
+						<h1 class="font-cool text-3xl font-medium">Feeds</h1>
 
-			<Feeds />
-		</main>
+						<a
+							href="/feeds/new"
+							class={
+								buttonStyles({ variant: "ghost", size: "withIcon" }) +
+								" inline-flex gap-3"
+							}
+						>
+							<IconPlus class="inline" /> <span>New feed</span>
+						</a>
+					</div>
+
+					<Feeds />
+				</main>
+			</Page>
+		</>
 	);
 }
 

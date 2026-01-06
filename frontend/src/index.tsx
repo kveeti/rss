@@ -4,7 +4,6 @@ import "solid-devtools";
 import { lazy } from "solid-js";
 import { render } from "solid-js/web";
 
-import { Layout } from "./layout";
 import { preloadsFeedPage } from "./pages/feed-page.data";
 import { preloadsFeedsPage } from "./pages/feeds-page.data";
 import "./styles.css";
@@ -42,4 +41,4 @@ export const routes: RouteDefinition[] = [
 	},
 ];
 
-render(() => <Router root={(props) => <Layout>{props.children}</Layout>}>{routes}</Router>, root!);
+render(() => <Router root={(props) => props.children}>{routes}</Router>, root!);
