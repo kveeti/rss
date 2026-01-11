@@ -13,6 +13,7 @@ import { FeedIcon } from "../components/feed-icon";
 import { IconCheck } from "../components/icons/check";
 import { IconUpdate } from "../components/icons/update";
 import { Input } from "../components/input";
+import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { api } from "../lib/api";
 import { FeedWithEntryCounts, getFeed, getFeedEntries } from "./feed-page.data";
 
@@ -24,24 +25,34 @@ export default function FeedEditPage() {
 	}
 
 	return (
-		<main class="mx-auto mt-4 max-w-90 px-3">
-			<ErrorBoundary
-				fallback={(_error, reset) => (
-					<Err
-						class="mt-8"
-						retry={() => {
-							revalidate(getFeed.keyFor(feedId));
-							reset();
-							resetErrorBoundaries();
-						}}
-					/>
-				)}
-			>
-				<Suspense fallback={<Skeleton />}>
-					<FeedEdit feedId={feedId} />
-				</Suspense>
-			</ErrorBoundary>
-		</main>
+		<>
+			<NavWrap>
+				<Nav>
+					<DefaultNavLinks />
+				</Nav>
+			</NavWrap>
+
+			<Page>
+				<main class="mx-auto max-w-90 px-3">
+					<ErrorBoundary
+						fallback={(_error, reset) => (
+							<Err
+								class="mt-8"
+								retry={() => {
+									revalidate(getFeed.keyFor(feedId));
+									reset();
+									resetErrorBoundaries();
+								}}
+							/>
+						)}
+					>
+						<Suspense fallback={<Skeleton />}>
+							<FeedEdit feedId={feedId} />
+						</Suspense>
+					</ErrorBoundary>
+				</main>
+			</Page>
+		</>
 	);
 }
 

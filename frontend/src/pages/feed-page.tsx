@@ -7,6 +7,7 @@ import { IconChevronLeft } from "../components/icons/chevron-left";
 import { IconChevronRight } from "../components/icons/chevron-right";
 import { IconDividerVertical } from "../components/icons/divider-vertical";
 import { IconSettings } from "../components/icons/settings";
+import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { getFeed, getFeedEntries } from "./feed-page.data";
 
 // TODO:
@@ -23,25 +24,35 @@ export default function FeedPage() {
 	}
 
 	return (
-		<main class="mx-auto max-w-160 px-3">
-			<ErrorBoundary
-				fallback={(_error, reset) => (
-					<FeedDetailsError
-						class="mt-4"
-						retry={() => {
-							revalidate(getFeed.keyFor(feedId));
-							reset();
-						}}
-					/>
-				)}
-			>
-				<Suspense fallback={<FeedDetailsSkeleton />}>
-					<FeedDetails feedId={feedId} />
-				</Suspense>
-			</ErrorBoundary>
+		<>
+			<NavWrap>
+				<Nav>
+					<DefaultNavLinks />
+				</Nav>
+			</NavWrap>
 
-			<FeedEntries feedId={feedId} />
-		</main>
+			<Page>
+				<main class="mx-auto max-w-160 px-3">
+					<ErrorBoundary
+						fallback={(_error, reset) => (
+							<FeedDetailsError
+								class="mt-4"
+								retry={() => {
+									revalidate(getFeed.keyFor(feedId));
+									reset();
+								}}
+							/>
+						)}
+					>
+						<Suspense fallback={<FeedDetailsSkeleton />}>
+							<FeedDetails feedId={feedId} />
+						</Suspense>
+					</ErrorBoundary>
+
+					<FeedEntries feedId={feedId} />
+				</main>
+			</Page>
+		</>
 	);
 }
 
