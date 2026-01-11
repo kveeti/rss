@@ -1,6 +1,7 @@
-import { useMatch, useNavigate } from "@solidjs/router";
+import { useMatch } from "@solidjs/router";
 import { JSX, splitProps } from "solid-js";
 
+import { BlazinglyFastLink } from "./components/link";
 
 export function Page(allProps: { class?: string; children: JSX.Element }) {
 	const [props, rest] = splitProps(allProps, ["class"]);
@@ -60,69 +61,11 @@ export function DefaultNavLinks() {
 
 function NavLink(props: { children: JSX.Element; href: string }) {
 	const match = useMatch(() => props.href.split("?")[0]!);
-	const navigate = useNavigate();
 
 	return (
-		<a
-			href={props.href}
-			class={"inline-flex px-3 py-4 sm:py-2" + (match() ? " bg-gray-a2" : "")}
-			onClick={(e) => {
-				// onClick has to be cancelled:
-				// for example on transaction pagination, users paginating
-				// without moving the mouse will end up more pages ahead
-				// than intended
-				// - user presses the link -> onMouseDown -> navigation
-				// - pagination happens, actual anchor tag changes while
-				//   the mouse button is still pressed
-				// - user lets go of the mouse button on the anchor
-				//   -> onClick triggers on the new anchor tag
-				//   triggering another pagination
-				// - user is now two pages ahead after "clicking" once
-
-				const url = new URL(String(props.href), window.location.href);
-				if (
-					url.origin === window.location.origin &&
-					e.button === 0 &&
-					!e.altKey &&
-					!e.ctrlKey &&
-					!e.metaKey &&
-					!e.shiftKey
-				) {
-					e.preventDefault();
-					return false;
-				}
-			}}
-			onMouseDown={(e) => {
-				const url = new URL(String(props.href), window.location.href);
-				if (
-					url.origin === window.location.origin &&
-					e.button === 0 &&
-					!e.altKey &&
-					!e.ctrlKey &&
-					!e.metaKey &&
-					!e.shiftKey
-				) {
-					e.preventDefault();
-					navigate(props.href);
-				}
-			}}
-			onTouchStart={(e) => {
-				const url = new URL(String(props.href), window.location.href);
-				if (url.origin === window.location.origin) {
-					e.preventDefault();
-					navigate(props.href);
-				}
-			}}
-			onKeyUp={(e) => {
-				if (e.key !== "Enter" && e.key !== "Space") return;
-				const url = new URL(String(props.href), window.location.href);
-				if (url.origin === window.location.origin) {
-					e.preventDefault();
-					navigate(props.href);
-				}
-			}}
-		>
-			{props.children}
-		</a>
+		<BlazinglyFastLink
+			{...props}
+			class={"inline-flex px-3 py-4 sm:py-2" + (match() ? " bg-gray-a3" : "")}
+		/>
 	);
 }
