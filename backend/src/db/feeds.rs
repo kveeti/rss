@@ -15,8 +15,10 @@ impl Data {
             where id in (
                 select id
                 from feeds f
-                where f.sync_started_at is null
-                    and (f.last_synced_at < $1 or f.last_synced_at is null)
+                where (
+                    (f.sync_started_at is null and (f.last_synced_at < $1 or f.last_synced_at is null))
+                    or f.sync_started_at < now() - interval '5 minutes'
+                )
                 order by f.last_synced_at desc nulls first
                 for update skip locked
             )
