@@ -18,7 +18,7 @@ export function NavWrap(allProps: { class?: string; children: JSX.Element }) {
 	const [props, rest] = splitProps(allProps, ["class"]);
 
 	let _class =
-		"bg-gray-1 border-gray-a5 fixed right-0 bottom-0 left-0 z-10 border-t sm:top-0 sm:bottom-[unset] sm:border-0 w-full";
+		"bg-gray-1 border border-gray-a3 fixed right-0 bottom-0 left-0 z-10 border-t sm:top-0 sm:bottom-[unset] sm:border-t-0 sm:border-b w-full";
 	if (props.class) {
 		_class += " " + props.class;
 	}
@@ -29,7 +29,7 @@ export function NavWrap(allProps: { class?: string; children: JSX.Element }) {
 export function Nav(allProps: { class?: string; children: JSX.Element }) {
 	const [props, rest] = splitProps(allProps, ["class"]);
 
-	let _class = "pwa:pb-12 pwa:px-8 mx-auto flex max-w-160  px-3 w-full";
+	let _class = "pwa:pb-12 pwa:px-8 mx-auto flex max-w-160 px-3 w-full";
 	if (props.class) {
 		_class += " " + props.class;
 	}
