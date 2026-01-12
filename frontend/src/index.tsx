@@ -36,6 +36,14 @@ export const routes: RouteDefinition[] = [
 		component: lazy(() => import("./pages/feed-edit-page")),
 	},
 	{
+		path: "/unread",
+		component: lazy(() => import("./pages/unread-page")),
+	},
+	{
+		path: "/entries",
+		component: lazy(() => import("./pages/entries-page")),
+	},
+	{
 		path: "**",
 		component: () => <Navigate href="/feeds" />,
 	},
