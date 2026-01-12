@@ -14,6 +14,17 @@ export type FeedWithEntryCounts = {
 	last_synced_at: string | null;
 };
 
+export type FeedEntry = {
+	id: string;
+	title: string;
+	url: string;
+	feed_id: string;
+	has_icon: boolean;
+	comments_url: string | null;
+	published_at: string | null;
+	entry_updated_at: string | null;
+};
+
 export const getFeed = query((feedId: string) => {
 	return api<FeedWithEntryCounts>({
 		path: `/v1/feeds/${feedId}`,
@@ -46,13 +57,7 @@ export const getFeedEntries = query(
 		}
 
 		return api<{
-			entries: Array<{
-				id: string;
-				title: string;
-				url: string;
-				comments_url: string;
-				published_at: string;
-			}>;
+			entries: Array<FeedEntry>;
 			next_id: string;
 			prev_id: string;
 		}>({

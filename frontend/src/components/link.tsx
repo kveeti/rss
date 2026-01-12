@@ -3,7 +3,7 @@ import { JSX } from "solid-js";
 
 type HTMLAnchorProps = JSX.ButtonHTMLAttributes<HTMLAnchorElement> & {
 	children?: JSX.Element;
-	href: string;
+	href?: string;
 };
 
 export const textLinkStyles =
@@ -28,8 +28,11 @@ export function BlazinglyFastLink(props: HTMLAnchorProps) {
 	return (
 		<a
 			{...props}
-			href={props.href}
+			role="link"
+			aria-disabled={props.href ? undefined : "true"}
 			onClick={(e) => {
+				if (!props.href) return;
+
 				const url = new URL(String(props.href), window.location.href);
 				if (
 					url.origin === window.location.origin &&
@@ -44,6 +47,8 @@ export function BlazinglyFastLink(props: HTMLAnchorProps) {
 				}
 			}}
 			onMouseDown={(e) => {
+				if (!props.href) return;
+
 				const url = new URL(String(props.href), window.location.href);
 				if (
 					url.origin === window.location.origin &&
@@ -58,6 +63,8 @@ export function BlazinglyFastLink(props: HTMLAnchorProps) {
 				}
 			}}
 			onTouchStart={(e) => {
+				if (!props.href) return;
+
 				const url = new URL(String(props.href), window.location.href);
 				if (url.origin === window.location.origin) {
 					e.preventDefault();
@@ -65,6 +72,8 @@ export function BlazinglyFastLink(props: HTMLAnchorProps) {
 				}
 			}}
 			onKeyUp={(e) => {
+				if (!props.href) return;
+
 				if (e.key !== "Enter" && e.key !== "Space") return;
 				const url = new URL(String(props.href), window.location.href);
 				if (url.origin === window.location.origin) {

@@ -1,12 +1,11 @@
 import { createAsync, revalidate, useParams, useSearchParams } from "@solidjs/router";
-import { ErrorBoundary, For, JSX, Match, Show, Suspense, Switch, splitProps } from "solid-js";
+import { ErrorBoundary, For, Show, Suspense } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
+import { Entry } from "../components/entry";
 import { FeedIcon } from "../components/feed-icon";
-import { IconChevronLeft } from "../components/icons/chevron-left";
-import { IconChevronRight } from "../components/icons/chevron-right";
-import { IconDividerVertical } from "../components/icons/divider-vertical";
 import { IconSettings } from "../components/icons/settings";
+import { Pagination } from "../components/pagination";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { getFeed, getFeedEntries } from "./feed-page.data";
 
@@ -147,51 +146,37 @@ function FeedEntries(props: { feedId: string }) {
 function FeedEntriesList(props: { feedId: string; left?: string; right?: string; limit?: string }) {
 	const entries = createAsync(() => getFeedEntries(props));
 
+	const prevHref = () =>
+		entries()?.prev_id ? `/feeds/${props.feedId}?left=${entries()?.prev_id}` : undefined;
+
+	const nextHref = () =>
+		entries()?.next_id ? `/feeds/${props.feedId}?right=${entries()?.next_id}` : undefined;
+
 	return (
 		<>
 			<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
 				<For each={entries()?.entries}>
-					{(entry) => (
-						<li class="group/entry focus:bg-gray-a2 hover:bg-gray-a2 relative px-3 py-4">
-							<a href={entry.url} target="_blank" class="focus absolute inset-0">
-								<span class="sr-only">{entry.title}</span>
-							</a>
+					{(entry) => {
+						const dateStr = entry.published_at || entry.entry_updated_at;
+						const date = dateStr ? new Date(dateStr) : undefined;
 
-							<p class="font-cool mb-1 text-[1.3rem] font-[400] group-hover/entry:underline group-has-[a[id=comments]:hover]/entry:no-underline">
-								{entry.title}
-							</p>
-
-							<div class="flex items-center gap-2">
-								<p class="text-gray-11 text-sm">
-									{relativeTime(new Date(entry.published_at))}
-								</p>
-
-								<Show when={entry.comments_url}>
-									<IconDividerVertical />
-									<a
-										id="comments"
-										href={entry.comments_url}
-										target="_blank"
-										class="group/comments text-gray-11 relative -m-4 p-4 text-sm underline outline-none"
-									>
-										<span class="in-focus:outline-gray-a10 group-hover/comments:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
-											comments
-										</span>
-									</a>
-								</Show>
-							</div>
-						</li>
-					)}
+						return (
+							<Entry
+								feedId={entry.feed_id}
+								hasIcon={entry.has_icon}
+								title={entry.title}
+								date={date}
+								commentsUrl={entry.comments_url}
+								url={entry.url}
+							/>
+						);
+					}}
 				</For>
 			</ul>
 
 			<div class="pwa:bottom-28 fixed right-0 bottom-14 left-0 sm:bottom-0">
-				<div class="pointer-events-none mx-auto flex max-w-160 justify-end px-3 py-2">
-					<Pagination
-						nextId={entries()?.next_id}
-						prevId={entries()?.prev_id}
-						feedId={props.feedId}
-					/>
+				<div class="pointer-events-none mx-auto flex max-w-160 justify-end">
+					<Pagination prevHref={prevHref()} nextHref={nextHref()} />
 				</div>
 			</div>
 		</>
@@ -226,8 +211,8 @@ function FeedEntriesSkeleton() {
 			</ul>
 
 			<div class="pwa:bottom-28 fixed right-0 bottom-14 left-0 sm:bottom-0">
-				<div class="pointer-events-none mx-auto flex max-w-160 justify-end px-3 py-2">
-					<Pagination nextId={undefined} prevId={undefined} feedId={undefined} />
+				<div class="pointer-events-none mx-auto flex max-w-160 justify-end">
+					<Pagination prevHref={undefined} nextHref={undefined} />
 				</div>
 			</div>
 		</>
@@ -244,39 +229,4 @@ function relativeTime(date: Date) {
 	const divisor = unitIndex ? unitsInSec[unitIndex - 1] : 1;
 
 	return rtf.format(Math.floor(secondsDiff / divisor), unitStrings[unitIndex]);
-}
-
-function Link(allProps: { href?: string | null } & JSX.HTMLAttributes<HTMLAnchorElement>) {
-	const [props, rest] = splitProps(allProps, ["href"]);
-
-	return (
-		<Switch>
-			<Match when={props.href}>{(href) => <a role="link" {...rest} href={href()} />}</Match>
-			<Match when={!props.href}>
-				<a role="link" aria-disabled="true" {...rest} />
-			</Match>
-		</Switch>
-	);
-}
-
-function Pagination(props: { nextId?: string; prevId?: string; feedId?: string }) {
-	return (
-		<div class="pointer-events-auto flex items-center gap-2">
-			<Link
-				class="bg-gray-1 border-gray-5 focus flex items-center justify-center rounded-full border py-2 ps-2 pe-3 select-none aria-disabled:opacity-40"
-				href={props.prevId && `/feeds/${props.feedId}?left=${props.prevId}`}
-			>
-				<IconChevronLeft />
-				<span class="ms-1 text-xs">prev</span>
-			</Link>
-
-			<Link
-				class="bg-gray-1 border-gray-5 focus flex items-center justify-center rounded-full border py-2 ps-3 pe-2 select-none aria-disabled:opacity-40"
-				href={props.nextId && `/feeds/${props.feedId}?right=${props.nextId}`}
-			>
-				<span class="me-1 text-xs">next</span>
-				<IconChevronRight />
-			</Link>
-		</div>
-	);
 }
