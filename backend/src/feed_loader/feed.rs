@@ -63,6 +63,8 @@ fn parse_rss(bytes: &[u8]) -> anyhow::Result<(ParsedFeed, Vec<NewEntry>, usize)>
                         .comments
                         .to_owned()
                         .map(|comments| comments.to_string()),
+                    // No per-entry updated_at timestamp in RSS 2.0
+                    entry_updated_at: None,
                 });
 
                 (entries, skipped)
@@ -107,6 +109,7 @@ fn parse_atom(bytes: &[u8], feed_url: &str) -> anyhow::Result<(ParsedFeed, Vec<N
                     url,
                     published_at: entry.published.map(|published| published.to_utc()),
                     comments_url: None,
+                    entry_updated_at: Some(entry.updated.to_utc()),
                 });
                 (entries, skipped)
             });

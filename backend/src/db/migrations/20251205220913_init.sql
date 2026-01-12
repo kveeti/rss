@@ -39,6 +39,7 @@ create table entries (
     read_at timestamptz,
     starred_at timestamptz,
     published_at timestamptz,
+    entry_updated_at timestamptz,
     created_at timestamptz not null default now(),
     updated_at timestamptz,
 

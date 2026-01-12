@@ -48,7 +48,7 @@ impl Data {
         .id;
 
         let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
-            "insert into entries (id, feed_id, title, url, comments_url, published_at)",
+            "insert into entries (id, feed_id, title, url, comments_url, published_at, entry_updated_at)",
         );
 
         builder.push_values(unique_entries, |mut b, entry| {
@@ -58,6 +58,7 @@ impl Data {
             b.push_bind(entry.url);
             b.push_bind(entry.comments_url);
             b.push_bind(entry.published_at);
+            b.push_bind(entry.entry_updated_at);
         });
 
         builder.push(
@@ -66,7 +67,8 @@ impl Data {
                 title = excluded.title,
                 url = excluded.url,
                 comments_url = excluded.comments_url,
-                published_at = excluded.published_at
+                published_at = excluded.published_at,
+                entry_updated_at = excluded.entry_updated_at
             "#,
         );
 
@@ -112,7 +114,7 @@ impl Data {
         entries: Vec<NewEntry>,
     ) -> Result<(), sqlx::Error> {
         let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
-            "insert into entries (id, feed_id, title, url, comments_url, published_at)",
+            "insert into entries (id, feed_id, title, url, comments_url, published_at, entry_updated_at)",
         );
 
         builder.push_values(entries, |mut b, entry| {
@@ -122,6 +124,7 @@ impl Data {
             b.push_bind(entry.url);
             b.push_bind(entry.comments_url);
             b.push_bind(entry.published_at);
+            b.push_bind(entry.entry_updated_at);
         });
 
         builder.build().execute(&self.pg_pool).await?;
@@ -210,6 +213,7 @@ impl Data {
                 e.url,
                 e.comments_url,
                 e.published_at,
+                e.entry_updated_at,
                 e.read_at,
                 e.starred_at,
                 e.created_at,
@@ -224,13 +228,13 @@ impl Data {
             Some(Cursor::Left(ref id)) => {
                 query
                     .push(" and (")
-                    .push("( e.published_at = ( select published_at from entries where id = ")
+                    .push("( coalesce(e.entry_updated_at, e.published_at) = ( select coalesce(entry_updated_at, published_at) from entries where id = ")
                     .push_bind(id.to_owned())
                     .push(")")
                     .push(" and e.id > ")
                     .push_bind(id.to_owned())
                     .push(")")
-                    .push(" or e.published_at > ( select published_at from entries where id = ")
+                    .push(" or coalesce(e.entry_updated_at, e.published_at) > ( select coalesce(entry_updated_at, published_at) from entries where id = ")
                     .push_bind(id)
                     .push(")")
                     .push(")");
@@ -240,13 +244,13 @@ impl Data {
             Some(Cursor::Right(ref id)) => {
                 query
                     .push(" and (")
-                    .push("( e.published_at = ( select published_at from entries where id = ")
+                    .push("( coalesce(e.entry_updated_at, e.published_at) = ( select coalesce(entry_updated_at, published_at) from entries where id = ")
                     .push_bind(id.to_owned())
                     .push(")")
                     .push(" and e.id < ")
                     .push_bind(id.to_owned())
                     .push(")")
-                    .push(" or e.published_at < ( select published_at from entries where id = ")
+                    .push(" or coalesce(e.entry_updated_at, e.published_at) < ( select coalesce(entry_updated_at, published_at) from entries where id = ")
                     .push_bind(id)
                     .push(")")
                     .push(")");
@@ -257,7 +261,7 @@ impl Data {
         };
 
         query
-            .push(" order by e.published_at ")
+            .push(" order by coalesce(e.entry_updated_at, e.published_at) ")
             .push(order)
             .push(", e.id ")
             .push(order);
@@ -277,6 +281,7 @@ impl Data {
                 read_at: row.get_unchecked("read_at"),
                 starred_at: row.get_unchecked("starred_at"),
                 published_at: row.get_unchecked("published_at"),
+                entry_updated_at: row.get_unchecked("entry_updated_at"),
             })
             .collect();
 
@@ -556,6 +561,7 @@ pub struct EntryForList {
     pub read_at: Option<DateTime<Utc>>,
     pub starred_at: Option<DateTime<Utc>>,
     pub published_at: Option<DateTime<Utc>>,
+    pub entry_updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -588,6 +594,7 @@ pub struct NewEntry {
     pub url: String,
     pub comments_url: Option<String>,
     pub published_at: Option<DateTime<Utc>>,
+    pub entry_updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, serde::Serialize)]
