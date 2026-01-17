@@ -34,3 +34,19 @@ export const queryEntries = query((params: FilterParams) => {
 		query: queryParams,
 	});
 }, "entries");
+
+export function preloadsEntriesPage(props: { search: string }) {
+	import("./entries-page");
+	const searchParams = new URLSearchParams(props.search);
+	queryEntries({
+		feed_id: searchParams.get("feed_id") ?? undefined,
+		query: searchParams.get("query") ?? undefined,
+		left: searchParams.get("left") ?? undefined,
+		right: searchParams.get("right") ?? undefined,
+		unread: searchParams.get("unread") ?? undefined,
+		starred: searchParams.get("starred") ?? undefined,
+		start: searchParams.get("start") ?? undefined,
+		end: searchParams.get("end") ?? undefined,
+		sort: searchParams.get("sort") ?? undefined,
+	});
+}

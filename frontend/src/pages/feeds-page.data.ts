@@ -12,4 +12,5 @@ export const getFeeds = query(() => {
 
 export function preloadsFeedsPage() {
 	getFeeds();
+	import("./feeds-page");
 }

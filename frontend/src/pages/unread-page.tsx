@@ -1,73 +1,82 @@
 import { createAsync, revalidate, useSearchParams } from "@solidjs/router";
-import { ErrorBoundary, Suspense, resetErrorBoundaries } from "solid-js";
+import { createEffect, resetErrorBoundaries } from "solid-js";
 
+import { Boundaries } from "../components/boundaries";
 import { Button } from "../components/button";
 import { Entry } from "../components/entry";
 import { NavPaginationLinks, Pagination, buildPaginatedHref } from "../components/pagination";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { queryEntries } from "./entries-page.data";
-
-type UnreadEntriesParams = {
-	right?: string;
-	left?: string;
-};
+import { getUnreadEntries } from "./unread-page.data";
 
 export default function UnreadPage() {
-	const [searchParams] = useSearchParams();
-
-	const unreadEntriesParams = () => ({
-		right: searchParams.right as string | undefined,
-		left: searchParams.left as string | undefined,
-	});
-
 	return (
 		<>
 			<NavWrap>
 				<Nav>
 					<div class="flex w-full justify-between">
 						<DefaultNavLinks />
-						<NavPagination {...unreadEntriesParams()} />
+						<NavPagination />
 					</div>
 				</Nav>
 			</NavWrap>
 
 			<Page>
 				<main class="mx-auto max-w-160 px-3">
-					<Suspense fallback={<EntriesSkeleton />}>
-						<ErrorBoundary
-							fallback={(_error, _reset) => (
-								<div class={"space-y-4"}>
-									<p class="bg-red-a4 p-4">Error loading entries</p>
+					<Boundaries
+						loading={<EntriesSkeleton />}
+						error={(_reset) => (
+							<div class={"space-y-4"}>
+								<p class="bg-red-a4 p-4">Error loading entries</p>
 
-									<Button
-										onClick={() => {
-											revalidate(queryEntries.keyFor(unreadEntriesParams()));
-											// Reset all error boundaries here so that
-											// the one in nav also get reset
-											resetErrorBoundaries();
-										}}
-									>
-										Retry
-									</Button>
-								</div>
-							)}
-						>
-							<EntriesList {...unreadEntriesParams()} />
-						</ErrorBoundary>
-					</Suspense>
+								<Button
+									onClick={() => {
+										revalidate(queryEntries.key);
+										// Reset all error boundaries here so that
+										// the one in nav also get reset
+										resetErrorBoundaries();
+									}}
+								>
+									Retry
+								</Button>
+							</div>
+						)}
+					>
+						<EntriesList />
+					</Boundaries>
 				</main>
 			</Page>
 		</>
 	);
 }
 
-function EntriesList(props: UnreadEntriesParams) {
-	const entriesCursor = createAsync(() => queryEntries({ ...props, unread: "true" }));
-
+function EntriesList() {
 	const [searchParams] = useSearchParams();
 
-	const nextHref = () => buildPaginatedHref("right", entriesCursor()?.next_id, searchParams);
-	const prevHref = () => buildPaginatedHref("left", entriesCursor()?.prev_id, searchParams);
+	const entriesCursor = createAsync(() =>
+		getUnreadEntries(
+			searchParams.left as string | undefined,
+			searchParams.right as string | undefined
+		)
+	);
+
+	createEffect(() => {
+		const nextId = entriesCursor()?.next_id;
+		const prevId = entriesCursor()?.prev_id;
+
+		if (nextId) {
+			queryEntries({ right: nextId, unread: "true" });
+		}
+
+		if (prevId) {
+			queryEntries({ left: prevId, unread: "true" });
+		}
+	});
+
+	const nextHref = () =>
+		buildPaginatedHref("right", entriesCursor()?.next_id, "/unread", searchParams);
+	const prevHref = () =>
+		buildPaginatedHref("left", entriesCursor()?.prev_id, "/unread", searchParams);
 
 	return (
 		<>
@@ -100,35 +109,39 @@ function EntriesList(props: UnreadEntriesParams) {
 
 function EntriesSkeleton() {
 	return (
-		<main class="mx-auto max-w-160 px-3">
-			<ul class="space-y-4" aria-hidden="true">
-				{Array.from({ length: 14 }).map(() => (
-					<li class="bg-gray-a2/20 flex w-full flex-col gap-2 p-4">
-						<div class="flex items-center gap-3">
-							<div class="inline-flex size-6"></div>
-							<p class="invisible">0</p>
-						</div>
+		<ul class="space-y-4" aria-hidden="true">
+			{Array.from({ length: 7 }).map(() => (
+				<li class="bg-gray-a2/20 flex w-full flex-col gap-2 p-4">
+					<div class="flex items-center gap-3">
+						<div class="inline-flex size-6"></div>
+
 						<p class="invisible">0</p>
-					</li>
-				))}
-			</ul>
-		</main>
+					</div>
+
+					<p class="invisible">0</p>
+				</li>
+			))}
+		</ul>
 	);
 }
 
-function NavPagination(props: UnreadEntriesParams) {
+function NavPagination() {
 	return (
-		<ErrorBoundary fallback={<NavPaginationLinks />}>
-			<Suspense fallback={<NavPaginationLinks />}>
-				<NavPaginationInner {...props} />
-			</Suspense>
-		</ErrorBoundary>
+		<Boundaries loading={<NavPaginationLinks />} error={(_reset) => <NavPaginationLinks />}>
+			<NavPaginationInner />
+		</Boundaries>
 	);
 }
 
-function NavPaginationInner(props: UnreadEntriesParams) {
-	const entriesCursor = createAsync(() => queryEntries(props));
+function NavPaginationInner() {
 	const [searchParams] = useSearchParams();
+
+	const entriesCursor = createAsync(() =>
+		getUnreadEntries(
+			searchParams.left as string | undefined,
+			searchParams.right as string | undefined
+		)
+	);
 
 	const nextHref = () =>
 		buildPaginatedHref("right", entriesCursor()?.next_id, "/unread", searchParams);

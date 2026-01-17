@@ -3,14 +3,7 @@ import { ErrorBoundary, JSX, Show, Suspense, createSignal, resetErrorBoundaries 
 
 import { Button } from "../components/button";
 import { Entry } from "../components/entry";
-import {
-	NavPaginationLinks,
-	Pagination,
-	PaginationLink,
-	PaginationNext,
-	PaginationPrev,
-	buildPaginatedHref,
-} from "../components/pagination";
+import { NavPaginationLinks, Pagination, buildPaginatedHref } from "../components/pagination";
 import { Select } from "../components/select";
 import { DefaultNavLinks, Nav, NavWrap } from "../layout";
 import { type FilterParams, queryEntries } from "./entries-page.data";
