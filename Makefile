@@ -30,3 +30,6 @@ dbreset:
 
 dbnewmigration:
 	@cargo sqlx migrate add --source ./backend/db/migrations
+
+db:
+	@docker compose exec -it db psql -U pg -d db
