@@ -1,0 +1,34 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select f.id, f.feed_url, f.site_url\n            from feeds f\n            where f.feed_url like $1\n            limit 1\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "feed_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "site_url",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true
+    ]
+  },
+  "hash": "843adebe8d69901aa848b5d5a1e08177dc2dea64ec34c38a1f9f317e334052de"
+}
