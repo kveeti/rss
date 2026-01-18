@@ -2,6 +2,7 @@ import { createAsync, revalidate, useSearchParams } from "@solidjs/router";
 import { ErrorBoundary, JSX, Show, Suspense, createSignal, resetErrorBoundaries } from "solid-js";
 
 import { Button } from "../components/button";
+import { Empty } from "../components/empty";
 import { Entry } from "../components/entry";
 import { NavPaginationLinks, Pagination, buildPaginatedHref } from "../components/pagination";
 import { Select } from "../components/select";
@@ -264,6 +265,10 @@ function EntriesList(props: FilterParams) {
 		buildPaginatedHref("right", entriesCursor()?.next_id, "/entries", searchParams);
 	const prevHref = () =>
 		buildPaginatedHref("left", entriesCursor()?.prev_id, "/entries", searchParams);
+
+	if (!entriesCursor()?.entries.length) {
+		return <Empty>No matches</Empty>;
+	}
 
 	return (
 		<div>

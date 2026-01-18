@@ -9,6 +9,7 @@ import {
 } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
+import { Empty } from "../components/empty";
 import { FeedIcon } from "../components/feed-icon";
 import { IconPlus } from "../components/icons/plus";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
@@ -133,7 +134,7 @@ function FeedsList() {
 	return (
 		<>
 			{!feeds()?.length ? (
-				<p class="bg-gray-a2/60 p-4">No feeds yet</p>
+				<Empty>No feeds yet</Empty>
 			) : (
 				<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
 					{feeds()?.map((feed) => (
