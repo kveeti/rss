@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            insert into opml_import_jobs (id, status, total, imported, skipped, failed)\n            values ($1, $2, $3, 0, $4, 0)\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Int8",
+        "Int8"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "5b49a4d8416cf8f0efafdf6f74d5809fccdd942e58279252fc0a66581e73cf31"
+}

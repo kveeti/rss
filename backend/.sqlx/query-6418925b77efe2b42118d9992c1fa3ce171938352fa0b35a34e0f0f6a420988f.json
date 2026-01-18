@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update feeds\n            set last_sync_result = $2,\n                sync_started_at = null,\n                updated_at = now()\n            where feed_url = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "6418925b77efe2b42118d9992c1fa3ce171938352fa0b35a34e0f0f6a420988f"
+}

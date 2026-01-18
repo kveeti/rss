@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                with icon as (\n                    insert into icons (id, hash, data, content_type) values ($1, $2, $3, $4)\n                    on conflict (hash) do update\n                        set hash = excluded.hash\n                    returning id\n                )\n                insert into feeds_icons (feed_id, icon_id)\n                select $5, id from icon\n                on conflict (feed_id, icon_id) do nothing\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Bytea",
+        "Text",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "57296428b4e664feb952b7d11be6ba089881e9b356d0073771552e9bc2d3360f"
+}

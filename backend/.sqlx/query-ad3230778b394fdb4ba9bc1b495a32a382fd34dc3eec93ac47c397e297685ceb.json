@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            insert into icons (id, hash, data, content_type) values ($1, $2, $3, $4)\n            on conflict (hash) do nothing\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Bytea",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "ad3230778b394fdb4ba9bc1b495a32a382fd34dc3eec93ac47c397e297685ceb"
+}

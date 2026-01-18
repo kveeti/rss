@@ -26,10 +26,10 @@ backpreview:
 preview: backpreview frontpreview
 
 dbreset:
-	@cargo sqlx db reset --force --source ./backend/src/db/migrations
+	@cargo sqlx db reset --force --source ./backend/src/db/pg/migrations
 
 dbnewmigration:
-	@cargo sqlx migrate add --source ./backend/db/migrations
+	@cargo sqlx migrate add --source ./backend/src/db/pg/migrations
 
 db:
 	@docker compose exec -it db psql -U pg -d db

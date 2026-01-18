@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            insert into feeds (\n                id,\n                source_title,\n                feed_url,\n                site_url,\n                last_synced_at,\n                last_sync_result,\n                sync_started_at\n            ) values ($1, $2, $3, $4, now(), 'success', NULL)\n            on conflict (feed_url) do update set\n                source_title = $2,\n                site_url = $4,\n                updated_at = now(),\n                sync_started_at = NULL,\n                last_synced_at = now(),\n                last_sync_result = 'success'\n            returning id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "01e3bf7735951eb14b6796f121d9a16ec4336af40118a1ff595fa66339908335"
+}
