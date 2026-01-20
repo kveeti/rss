@@ -17,7 +17,7 @@ export function PaginationLink(allProps: { href?: string; children: JSX.Element;
 	const [props, rest] = splitProps(allProps, ["class"]);
 
 	let _class =
-		"bg-gray-1 border-gray-5 focus flex items-center justify-center rounded-full border select-none aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
+		"bg-gray-1 border-gray-5 focus rounded-full border select-none aria-disabled:opacity-40 aria-disabled:cursor-not-allowed";
 	if (props.class) {
 		_class += " " + props.class;
 	}
@@ -29,9 +29,13 @@ export function PaginationNext(props: { class?: string; href?: string }) {
 	return (
 		<PaginationLink
 			href={props.href}
-			class={"py-2 ps-3 pe-2" + (props.class ? " " + props.class : "")}
+			class={
+				"relative before:absolute before:-inset-y-2 before:left-0 before:-right-2 before:content-[''] flex items-center justify-center py-2 ps-3 pe-2" +
+				(props.class ? " " + props.class : "")
+			}
 		>
 			<span class="me-1 text-xs">next</span>
+
 			<IconChevronRight />
 		</PaginationLink>
 	);
@@ -41,7 +45,10 @@ export function PaginationPrev(props: { class?: string; href?: string }) {
 	return (
 		<PaginationLink
 			href={props.href}
-			class={"py-2 ps-2 pe-3" + (props.class ? " " + props.class : "")}
+			class={
+				"relative before:absolute before:-inset-y-2 before:-left-2 before:right-0 before:content-[''] flex items-center justify-center py-2 ps-2 pe-3" +
+				(props.class ? " " + props.class : "")
+			}
 		>
 			<IconChevronLeft />
 			<span class="ms-1 text-xs">prev</span>
