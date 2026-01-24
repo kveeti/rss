@@ -1,0 +1,18 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n                with icon as (\n                    insert into icons (id, hash, data, content_type) values ($1, $2, $3, $4)\n                    on conflict (hash) do nothing\n                    returning id\n                )\n                insert into feeds_icons (feed_id, icon_id)\n                select $5, id from icon\n                on conflict (feed_id, icon_id) do nothing\n                ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Bytea",
+        "Text",
+        "Varchar"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "df9d04ed2e7ed5efb77b61fdb222f0b3f256f79da0a7f90d3149dbb23f37fc1b"
+}
