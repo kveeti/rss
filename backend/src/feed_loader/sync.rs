@@ -5,7 +5,10 @@ use futures::{StreamExt, stream};
 
 use crate::{
     db::Data,
-    feed_loader::{FeedResult, load_feed},
+    feed_loader::{
+        FeedResult, SYNC_RESULT_DB_ERROR, load_feed, sync_result_for_error,
+        sync_result_for_feed_result,
+    },
 };
 
 static MAX_SYNCING_FEEDS: usize = 10;
@@ -44,7 +47,7 @@ async fn sync_feed(data: &Data, url: String) {
 
     match result {
         Ok(FeedResult::Loaded(loaded_feed)) => {
-            let _ = data
+            let upsert_result = data
                 .upsert_feed_and_entries_and_icon(
                     &loaded_feed.feed,
                     loaded_feed.entries,
@@ -53,9 +56,29 @@ async fn sync_feed(data: &Data, url: String) {
                 .await
                 .map_err(|e| tracing::error!("error upserting feed: {e:#}"));
 
+            if upsert_result.is_err() {
+                set_sync_result(data, &url, SYNC_RESULT_DB_ERROR).await;
+            }
+
             tracing::info!("feed synced");
         }
-        Ok(result) => tracing::warn!("unexpected result syncing feed: {result:?}"),
-        Err(err) => tracing::error!("error syncing feed: {err:?}"),
+        Ok(result) => {
+            match result {
+                FeedResult::Loaded(_) => {}
+                _ => tracing::warn!("unexpected result syncing feed: {result:?}"),
+            }
+            set_sync_result(data, &url, sync_result_for_feed_result(&result)).await;
+        }
+        Err(err) => {
+            tracing::error!("error syncing feed: {err:?}");
+            set_sync_result(data, &url, sync_result_for_error(&err)).await;
+        }
     };
+}
+
+async fn set_sync_result(data: &Data, url: &str, result: &str) {
+    let _ = data
+        .set_feed_sync_result(url, result)
+        .await
+        .map_err(|e| tracing::error!("error updating sync result: {e:#}"));
 }

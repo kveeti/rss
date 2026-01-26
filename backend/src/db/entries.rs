@@ -28,13 +28,22 @@ impl Data {
 
         let feed_id = query!(
             r#"
-            insert into feeds (id, title, feed_url, site_url, last_synced_at, sync_started_at) values ($1, $2, $3, $4, now(), NULL)
+            insert into feeds (
+                id,
+                title,
+                feed_url,
+                site_url,
+                last_synced_at,
+                last_sync_result,
+                sync_started_at
+            ) values ($1, $2, $3, $4, now(), 'success', NULL)
             on conflict (feed_url) do update set
                 title = $2,
                 site_url = $4,
                 updated_at = now(),
                 sync_started_at = NULL,
-                last_synced_at = now()
+                last_synced_at = now(),
+                last_sync_result = 'success'
             returning id
             "#,
             create_id(),
@@ -145,6 +154,7 @@ impl Data {
                 f.site_url,
                 f.created_at,
                 f.last_synced_at,
+                f.last_sync_result,
                 count(e.id) as "entry_count!",
                 count(e.id) filter (where e.read_at is null) as "unread_entry_count!",
                 exists (
@@ -179,6 +189,7 @@ impl Data {
                 f.site_url,
                 f.created_at,
                 f.last_synced_at,
+                f.last_sync_result,
                 count(e.id) as "entry_count!",
                 count(e.id) filter (where e.read_at is null) as "unread_entry_count!",
                 exists (
@@ -615,4 +626,5 @@ pub struct FeedWithEntryCounts {
     pub unread_entry_count: i64,
     pub has_icon: bool,
     pub last_synced_at: Option<DateTime<Utc>>,
+    pub last_sync_result: Option<String>,
 }

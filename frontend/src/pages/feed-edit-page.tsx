@@ -11,6 +11,7 @@ import {
 import { Button } from "../components/button";
 import { FeedIcon } from "../components/feed-icon";
 import { IconCheck } from "../components/icons/check";
+import { IconCross } from "../components/icons/cross";
 import { IconUpdate } from "../components/icons/update";
 import { Input } from "../components/input";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
@@ -122,6 +123,7 @@ function FeedEdit(props: { feedId: string }) {
 	const [latestFeed, setLatestFeed] = createSignal<FeedWithEntryCounts | null>(null);
 
 	const feed = () => latestFeed() ?? queriedFeed();
+	const syncError = () => formatSyncError(feed()?.last_sync_result ?? null);
 
 	return (
 		<>
@@ -170,6 +172,11 @@ function FeedEdit(props: { feedId: string }) {
 
 								<SyncButton feedId={feed()!.id} setLatestFeed={setLatestFeed} />
 							</div>
+							{syncError() ? (
+								<p class="bg-red-a4 border-red-a6 border p-4 text-sm">
+									{syncError()}
+								</p>
+							) : null}
 							<form class="space-y-6">
 								<Input label="Title" value={feed()!.title} />
 
@@ -206,19 +213,23 @@ function SyncButton(props: {
 	async function onSyncClick() {
 		setSyncStatus("syncing");
 
-		const latestFeed = await api<FeedWithEntryCounts>({
-			method: "POST",
-			path: `/v1/feeds/${props.feedId}/sync`,
-		});
+		try {
+			const latestFeed = await api<FeedWithEntryCounts>({
+				method: "POST",
+				path: `/v1/feeds/${props.feedId}/sync`,
+			});
 
-		setSyncStatus("synced");
-		props.setLatestFeed(latestFeed);
-		revalidate(getFeedEntries.key);
-		revalidate(getFeed.keyFor(props.feedId));
-
-		setTimeout(() => {
-			setSyncStatus("idle");
-		}, 2000);
+			setSyncStatus(latestFeed.last_sync_result === "success" ? "synced" : "error");
+			props.setLatestFeed(latestFeed);
+			revalidate(getFeedEntries.key);
+			revalidate(getFeed.keyFor(props.feedId));
+		} catch (_error) {
+			setSyncStatus("error");
+		} finally {
+			setTimeout(() => {
+				setSyncStatus("idle");
+			}, 2000);
+		}
 	}
 
 	return (
@@ -235,7 +246,37 @@ function SyncButton(props: {
 				<Match when={syncStatus() === "synced"}>
 					<IconCheck />
 				</Match>
+				<Match when={syncStatus() === "error"}>
+					<IconCross />
+				</Match>
 			</Switch>
 		</Button>
 	);
+}
+
+function formatSyncError(result: string | null) {
+	if (!result || result === "success") {
+		return null;
+	}
+
+	switch (result) {
+		case "parse_error":
+			return "Last sync failed: feed parse error";
+		case "not_found":
+			return "Last sync failed: feed not found";
+		case "disallowed":
+			return "Last sync failed: disallowed by robots.txt";
+		case "needs_choice":
+			return "Last sync failed: multiple feeds found";
+		case "unexpected_html":
+			return "Last sync failed: expected feed but got html";
+		case "invalid_url":
+			return "Last sync failed: invalid url";
+		case "fetch_error":
+			return "Last sync failed: network or fetch error";
+		case "db_error":
+			return "Last sync failed: database error";
+		default:
+			return "Last sync failed: unexpected error";
+	}
 }

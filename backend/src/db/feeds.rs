@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashSet;
 
 use crate::db::Data;
+use sqlx::query;
 
 impl Data {
     pub async fn get_existing_feed_urls(
@@ -38,7 +39,8 @@ impl Data {
             where id in (
                 select id
                 from feeds f
-                where (
+                where f.last_sync_result is distinct from 'parse_error'
+                and (
                     (f.sync_started_at is null and (f.last_synced_at < $1 or f.last_synced_at is null))
                     or f.sync_started_at < now() - interval '5 minutes'
                 )
@@ -53,6 +55,28 @@ impl Data {
         .await?;
 
         Ok(feeds)
+    }
+
+    pub async fn set_feed_sync_result(
+        &self,
+        feed_url: &str,
+        result: &str,
+    ) -> Result<(), sqlx::Error> {
+        query!(
+            r#"
+            update feeds
+            set last_sync_result = $2,
+                sync_started_at = null,
+                updated_at = now()
+            where feed_url = $1
+            "#,
+            feed_url,
+            result
+        )
+        .execute(&self.pg_pool)
+        .await?;
+
+        Ok(())
     }
 
     pub async fn get_one_feed_to_sync(

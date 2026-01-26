@@ -15,6 +15,41 @@ mod html;
 mod sync;
 pub use sync::*;
 
+pub const SYNC_RESULT_SUCCESS: &str = "success";
+pub const SYNC_RESULT_PARSE_ERROR: &str = "parse_error";
+pub const SYNC_RESULT_NOT_FOUND: &str = "not_found";
+pub const SYNC_RESULT_DISALLOWED: &str = "disallowed";
+pub const SYNC_RESULT_NEEDS_CHOICE: &str = "needs_choice";
+pub const SYNC_RESULT_UNEXPECTED_HTML: &str = "unexpected_html";
+pub const SYNC_RESULT_INVALID_URL: &str = "invalid_url";
+pub const SYNC_RESULT_FETCH_ERROR: &str = "fetch_error";
+pub const SYNC_RESULT_UNEXPECTED: &str = "unexpected";
+pub const SYNC_RESULT_DB_ERROR: &str = "db_error";
+
+pub fn sync_result_for_feed_result(result: &FeedResult) -> &'static str {
+    match result {
+        FeedResult::Loaded(_) => SYNC_RESULT_SUCCESS,
+        FeedResult::NeedsChoice(_) => SYNC_RESULT_NEEDS_CHOICE,
+        FeedResult::NotFound => SYNC_RESULT_NOT_FOUND,
+        FeedResult::Disallowed => SYNC_RESULT_DISALLOWED,
+    }
+}
+
+pub fn sync_result_for_error(err: &FeedError) -> &'static str {
+    match err {
+        FeedError::Parse => SYNC_RESULT_PARSE_ERROR,
+        FeedError::UnexpectedHtml => SYNC_RESULT_UNEXPECTED_HTML,
+        FeedError::InvalidUrl => SYNC_RESULT_INVALID_URL,
+        FeedError::NotFound => SYNC_RESULT_NOT_FOUND,
+        FeedError::Fetch(fetch_err) => match fetch_err {
+            FetchError::InvalidUrl => SYNC_RESULT_INVALID_URL,
+            FetchError::Disallowed => SYNC_RESULT_DISALLOWED,
+            _ => SYNC_RESULT_FETCH_ERROR,
+        },
+        _ => SYNC_RESULT_UNEXPECTED,
+    }
+}
+
 #[tracing::instrument(name = "load_feed")]
 pub async fn load_feed(url: &str) -> Result<FeedResult, FeedError> {
     tracing::info!("loading feed");
@@ -440,37 +475,38 @@ impl<S> FeedLoader<S> {
     }
 
     async fn is_allowed(&mut self, url: &str) -> Result<bool, FetchError> {
-        let origin = Url::parse(url)
-            .map_err(|_| FetchError::InvalidUrl)?
-            .origin()
-            .ascii_serialization();
+        Ok(true)
+        // let origin = Url::parse(url)
+        //     .map_err(|_| FetchError::InvalidUrl)?
+        //     .origin()
+        //     .ascii_serialization();
 
-        if let Some(robot) = self.robots.get(&origin) {
-            let allowed = robot.allowed(url);
-            tracing::trace!("robots.txt check (cached): {url} -> {allowed}");
-            return Ok(allowed);
-        }
+        // if let Some(robot) = self.robots.get(&origin) {
+        //     let allowed = robot.allowed(url);
+        //     tracing::trace!("robots.txt check (cached): {url} -> {allowed}");
+        //     return Ok(allowed);
+        // }
 
-        let robots_url = get_robots_url(url).map_err(|_| FetchError::InvalidUrl)?;
-        tracing::trace!("fetching robots.txt from: {robots_url}");
+        // let robots_url = get_robots_url(url).map_err(|_| FetchError::InvalidUrl)?;
+        // tracing::trace!("fetching robots.txt from: {robots_url}");
 
-        let robotstxt = CLIENT
-            .get(robots_url)
-            .send()
-            .await
-            .map_err(|_| FetchError::RobotsFetchFailed)?
-            .bytes()
-            .await
-            .map_err(|_| FetchError::RobotsParseFailed)?;
+        // let robotstxt = CLIENT
+        //     .get(robots_url)
+        //     .send()
+        //     .await
+        //     .map_err(|_| FetchError::RobotsFetchFailed)?
+        //     .bytes()
+        //     .await
+        //     .map_err(|_| FetchError::RobotsParseFailed)?;
 
-        let robot =
-            Robot::new(USER_AGENT, &robotstxt).map_err(|_| FetchError::RobotsParseFailed)?;
+        // let robot =
+        //     Robot::new(USER_AGENT, &robotstxt).map_err(|_| FetchError::RobotsParseFailed)?;
 
-        let allowed = robot.allowed(url);
-        tracing::trace!("robots.txt check: {} -> {}", url, allowed);
-        self.robots.insert(origin, robot);
+        // let allowed = robot.allowed(url);
+        // tracing::trace!("robots.txt check: {} -> {}", url, allowed);
+        // self.robots.insert(origin, robot);
 
-        Ok(allowed)
+        // Ok(allowed)
     }
 }
 

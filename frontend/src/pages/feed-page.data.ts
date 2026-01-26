@@ -12,6 +12,7 @@ export type FeedWithEntryCounts = {
 	unread_entry_count: number;
 	has_icon: boolean;
 	last_synced_at: string | null;
+	last_sync_result: string | null;
 };
 
 export type FeedEntry = {
