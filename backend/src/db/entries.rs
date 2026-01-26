@@ -371,13 +371,13 @@ impl Data {
 
             if let Some(ref start) = filters.start {
                 query
-                    .push(" and coalesce(e.entry_updated_at, e.published_at) >= ")
+                    .push(" and coalesce(e.published_at, e.entry_updated_at) >= ")
                     .push_bind(*start);
             }
 
             if let Some(ref end) = filters.end {
                 query
-                    .push(" and coalesce(e.entry_updated_at, e.published_at) <= ")
+                    .push(" and coalesce(e.published_at, e.entry_updated_at) <= ")
                     .push_bind(*end);
             }
 
@@ -404,7 +404,7 @@ impl Data {
                 // Going backwards (to previous page)
                 query
                     .push(" and (")
-                    .push("( coalesce(e.entry_updated_at, e.published_at) = ( select coalesce(entry_updated_at, published_at) from entries where id = ")
+                    .push("( coalesce(e.published_at, e.entry_updated_at) = ( select coalesce(published_at, entry_updated_at) from entries where id = ")
                     .push_bind(id.to_owned())
                     .push(")")
                     .push(" and e.id ")
@@ -412,9 +412,9 @@ impl Data {
                     .push(" ")
                     .push_bind(id.to_owned())
                     .push(")")
-                    .push(" or coalesce(e.entry_updated_at, e.published_at) ")
+                    .push(" or coalesce(e.published_at, e.entry_updated_at) ")
                     .push(lt)
-                    .push(" ( select coalesce(entry_updated_at, published_at) from entries where id = ")
+                    .push(" ( select coalesce(published_at, entry_updated_at) from entries where id = ")
                     .push_bind(id)
                     .push(")")
                     .push(")");
@@ -426,7 +426,7 @@ impl Data {
                 // Going forwards (to next page)
                 query
                     .push(" and (")
-                    .push("( coalesce(e.entry_updated_at, e.published_at) = ( select coalesce(entry_updated_at, published_at) from entries where id = ")
+                    .push("( coalesce(e.published_at, e.entry_updated_at) = ( select coalesce(published_at, entry_updated_at) from entries where id = ")
                     .push_bind(id.to_owned())
                     .push(")")
                     .push(" and e.id ")
@@ -434,9 +434,9 @@ impl Data {
                     .push(" ")
                     .push_bind(id.to_owned())
                     .push(")")
-                    .push(" or coalesce(e.entry_updated_at, e.published_at) ")
+                    .push(" or coalesce(e.published_at, e.entry_updated_at) ")
                     .push(gt)
-                    .push(" ( select coalesce(entry_updated_at, published_at) from entries where id = ")
+                    .push(" ( select coalesce(published_at, entry_updated_at) from entries where id = ")
                     .push_bind(id)
                     .push(")")
                     .push(")");
@@ -447,7 +447,7 @@ impl Data {
         };
 
         query
-            .push(" order by coalesce(e.entry_updated_at, e.published_at) ")
+            .push(" order by coalesce(e.published_at, e.entry_updated_at) ")
             .push(order)
             .push(", e.id ")
             .push(order);
