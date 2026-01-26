@@ -13,6 +13,7 @@ import { Empty } from "../components/empty";
 import { FeedIcon } from "../components/feed-icon";
 import { IconPlus } from "../components/icons/plus";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
+import { prettifyUrl } from "../lib/urls";
 import { getFeeds } from "./feeds-page.data";
 
 export default function FeedsPage() {
@@ -162,10 +163,7 @@ function FeedsList() {
 											class="group/link text-gray-11 relative z-10 -m-4 max-w-max p-4 text-xs outline-none"
 										>
 											<span class="in-focus:outline-gray-a10 underline group-hover/link:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
-												{feed.site_url
-													.replace(/^https?:\/\/www./, "")
-													.replace(/^https?:\/\//, "")
-													.replace(/\/$/, "")}
+												{prettifyUrl(feed.site_url)}
 											</span>
 										</a>
 									</div>
