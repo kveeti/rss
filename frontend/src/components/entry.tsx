@@ -4,12 +4,16 @@ import { IconDividerVertical } from "./icons/divider-vertical";
 type Falsy<T> = T | null | undefined | false;
 
 export function Entry(props: {
-	feedId: string;
-	hasIcon: boolean;
 	title: string;
 	date: Falsy<Date>;
 	url: string;
 	commentsUrl: Falsy<string>;
+	feed: {
+		id: string;
+		has_icon: boolean;
+		feed_url: string;
+		site_url: string | null;
+	};
 }) {
 	return (
 		<li class="group/entry focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative flex flex-col gap-2 p-3 select-none">
@@ -20,11 +24,9 @@ export function Entry(props: {
 			></a>
 
 			<div class="flex gap-3">
-				{props.hasIcon && (
-					<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
-						<FeedIcon feedId={props.feedId} class="size-6" />
-					</div>
-				)}
+				<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
+					<FeedIcon class="size-6" feed={props.feed} />
+				</div>
 
 				<div class="flex flex-col gap-1">
 					<span class="font-cool inline text-[1.3rem] select-auto group-hover/feed:underline group-has-[a[id=comments]:hover]/feed:no-underline">
@@ -57,10 +59,12 @@ export function Entry(props: {
 	);
 }
 
-export function EntryIcon(props: { feedId: string }) {
+export function EntryIcon(props: {
+	feed: { id: string; has_icon: boolean; feed_url: string; site_url: string | null };
+}) {
 	return (
 		<div class="flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
-			<FeedIcon feedId={props.feedId} class="size-6" />
+			<FeedIcon class="size-6" feed={props.feed} />
 		</div>
 	);
 }

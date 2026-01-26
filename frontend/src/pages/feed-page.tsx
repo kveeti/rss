@@ -63,16 +63,11 @@ function FeedDetails(props: { feedId: string }) {
 			{(feed) => (
 				<div class="mx-auto my-4 flex w-full justify-between gap-6">
 					<div class="font-cool relative text-xl">
-						{feed!.has_icon && (
-							<FeedIcon
-								feedId={feed!.id}
-								class="me-2.5 inline size-5.5 align-text-bottom"
-							/>
-						)}
-						<h1 class="inline font-medium">{feed!.title}</h1>
+						<FeedIcon class="me-2.5 inline size-5.5 align-text-bottom" feed={feed} />
+						<h1 class="inline font-medium">{feed.title}</h1>
 
-						<a href={feed!.site_url} class="absolute inset-0">
-							<span class="sr-only">{feed!.title}</span>
+						<a href={feed.site_url ?? feed.feed_url} class="absolute inset-0">
+							<span class="sr-only">{feed.title}</span>
 						</a>
 					</div>
 

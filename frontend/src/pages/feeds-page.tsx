@@ -138,44 +138,46 @@ function FeedsList() {
 				<Empty>No feeds yet</Empty>
 			) : (
 				<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
-					{feeds()?.map((feed) => (
-						<li class="focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative flex flex-col gap-2 p-3">
-							<a
-								href={`/feeds/${feed.id}`}
-								class="focus absolute top-0 left-0 h-full w-full"
-							></a>
-							<div class="flex gap-3">
-								{feed.has_icon && (
+					{feeds()?.map((feed) => {
+						const siteUrl = feed.site_url ?? feed.feed_url;
+
+						return (
+							<li class="focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative flex flex-col gap-2 p-3">
+								<a
+									href={`/feeds/${feed.id}`}
+									class="focus absolute top-0 left-0 h-full w-full"
+								></a>
+								<div class="flex gap-3">
 									<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
-										<FeedIcon feedId={feed.id} class="size-6" />
+										<FeedIcon feed={feed} class="size-6" />
 									</div>
-								)}
 
-								<div class="flex flex-col gap-3 font-medium">
-									<div class="flex flex-col gap-1">
-										<span class="font-cool inline text-[1.3rem] group-hover/feed:underline group-has-[a[id=site]:hover]/feed:no-underline">
-											{feed.title}
-										</span>
-
-										<a
-											id="site"
-											href={feed.site_url}
-											class="group/link text-gray-11 relative z-10 -m-4 max-w-max p-4 text-xs outline-none"
-										>
-											<span class="in-focus:outline-gray-a10 underline group-hover/link:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
-												{prettifyUrl(feed.site_url)}
+									<div class="flex flex-col gap-3 font-medium">
+										<div class="flex flex-col gap-1">
+											<span class="font-cool inline text-[1.3rem] group-hover/feed:underline group-has-[a[id=site]:hover]/feed:no-underline">
+												{feed.title}
 											</span>
-										</a>
-									</div>
 
-									<p class="text-gray-11 text-sm">
-										{feed.entry_count} entries ({feed.unread_entry_count}{" "}
-										unread)
-									</p>
+											<a
+												id="site"
+												href={siteUrl}
+												class="group/link text-gray-11 relative z-10 -m-4 max-w-max p-4 text-xs outline-none"
+											>
+												<span class="in-focus:outline-gray-a10 underline group-hover/link:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
+													{prettifyUrl(siteUrl)}
+												</span>
+											</a>
+										</div>
+
+										<p class="text-gray-11 text-sm">
+											{feed.entry_count} entries ({feed.unread_entry_count}{" "}
+											unread)
+										</p>
+									</div>
 								</div>
-							</div>
-						</li>
-					))}
+							</li>
+						);
+					})}
 				</ul>
 			)}
 		</>
