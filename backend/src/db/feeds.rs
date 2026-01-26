@@ -1,7 +1,8 @@
+use anyhow::Context;
 use chrono::{DateTime, Utc};
 use std::collections::HashSet;
 
-use crate::db::Data;
+use crate::db::{Data, FeedWithEntryCounts};
 use sqlx::query;
 
 impl Data {
@@ -124,6 +125,84 @@ impl Data {
         .await?;
 
         Ok(feed)
+    }
+
+    pub async fn update_feed(
+        &self,
+        feed_id: &str,
+        title: &str,
+        feed_url: &str,
+        site_url: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        let updated = query!(
+            r#"
+            update feeds
+            set title = $2,
+                feed_url = $3,
+                site_url = $4,
+                updated_at = now()
+            where id = $1
+            returning id
+            "#,
+            feed_id,
+            title,
+            feed_url,
+            site_url
+        )
+        .fetch_optional(&self.pg_pool)
+        .await?;
+
+        if updated.is_none() {
+            return Err(sqlx::Error::RowNotFound);
+        }
+
+        Ok(())
+    }
+
+    pub async fn delete_feed(&self, feed_id: &str) -> Result<bool, anyhow::Error> {
+        let mut tx = self
+            .pg_pool
+            .begin()
+            .await
+            .context("error starting transaction")?;
+
+        query!(
+            r#"
+            delete from entries
+            where feed_id = $1
+            "#,
+            feed_id
+        )
+        .execute(&mut *tx)
+        .await
+        .context("error deleting entries")?;
+
+        query!(
+            r#"
+            delete from feeds_icons
+            where feed_id = $1
+            "#,
+            feed_id
+        )
+        .execute(&mut *tx)
+        .await
+        .context("error deleting feeds_icons")?;
+
+        let deleted = query!(
+            r#"
+            delete from feeds
+            where id = $1
+            returning id
+            "#,
+            feed_id
+        )
+        .fetch_optional(&mut *tx)
+        .await
+        .context("error deleting feed")?;
+
+        tx.commit().await.context("error committing transaction")?;
+
+        Ok(deleted.is_some())
     }
 }
 

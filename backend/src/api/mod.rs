@@ -1,7 +1,7 @@
 use axum::{
     Router,
     http::{HeaderValue, Method, header},
-    routing::{get, post},
+    routing::{get, post}
 };
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
@@ -35,7 +35,12 @@ pub async fn start_api(data: Data, config: ApiConfig) {
             get(handlers::feeds::import_opml_events),
         )
         .route("/feeds/{id}/icon", get(handlers::feeds::get_feed_icon))
-        .route("/feeds/{id}", get(handlers::feeds::get_feed))
+        .route(
+            "/feeds/{id}",
+            get(handlers::feeds::get_feed)
+                .put(handlers::feeds::update_feed)
+                .delete(handlers::feeds::delete_feed),
+        )
         .route(
             "/feeds/{id}/entries",
             get(handlers::feeds::get_feed_entries),
@@ -68,7 +73,14 @@ async fn health() -> &'static str {
 
 fn cors(front_base_url: &str) -> CorsLayer {
     CorsLayer::new()
-        .allow_methods([Method::OPTIONS, Method::HEAD, Method::GET, Method::POST])
+        .allow_methods([
+            Method::OPTIONS,
+            Method::HEAD,
+            Method::GET,
+            Method::POST,
+            Method::PUT,
+            Method::DELETE,
+        ])
         .allow_headers([
             header::CONTENT_TYPE,
             header::ACCEPT,

@@ -6,7 +6,7 @@ export type FeedWithEntryCounts = {
 	id: string;
 	title: string;
 	feed_url: string;
-	site_url: string;
+	site_url: string | null;
 	created_at: string;
 	entry_count: number;
 	unread_entry_count: number;

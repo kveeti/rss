@@ -13,6 +13,12 @@ pub use query_feeds::query_feeds;
 mod get_feed;
 pub use get_feed::get_feed;
 
+mod update_feed;
+pub use update_feed::update_feed;
+
+mod delete_feed;
+pub use delete_feed::delete_feed;
+
 mod get_feed_entries;
 pub use get_feed_entries::get_feed_entries;
 

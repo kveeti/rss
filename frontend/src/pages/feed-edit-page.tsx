@@ -1,12 +1,14 @@
-import { createAsync, revalidate, useParams } from "@solidjs/router";
+import { createAsync, revalidate, useNavigate, useParams } from "@solidjs/router";
 import {
 	ErrorBoundary,
 	Match,
+	Show,
 	Suspense,
 	Switch,
 	createSignal,
 	resetErrorBoundaries,
 } from "solid-js";
+import { createStore } from "solid-js/store";
 
 import { Button } from "../components/button";
 import { FeedIcon } from "../components/feed-icon";
@@ -17,6 +19,7 @@ import { Input } from "../components/input";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { api } from "../lib/api";
 import { FeedWithEntryCounts, getFeed, getFeedEntries } from "./feed-page.data";
+import { getFeeds } from "./feeds-page.data";
 
 export default function FeedEditPage() {
 	const params = useParams();
@@ -130,21 +133,20 @@ function FeedEdit(props: { feedId: string }) {
 			{feed() ? (
 				<>
 					<div class="font-cool relative mx-auto -my-2 -ms-12 py-2 ps-12 text-xl">
-							<FeedIcon
-								class="me-2.5 inline size-5.5 align-text-bottom min-[27rem]:-ms-8.5 min-[27rem]:me-3"
-							feed={feed}
-							/>
-						)}
-						<h1 class="inline font-medium">{feed()!.title}</h1>
+						<FeedIcon
+							class="me-2.5 inline size-5.5 align-text-bottom min-[27rem]:-ms-8.5 min-[27rem]:me-3"
+							feed={feed()!}
+						/>
+						<h1 class="inline font-medium">{feed()?.title}</h1>
 
-						<a href={feed()!.site_url} class="absolute inset-0">
-							<span class="sr-only">{feed()!.title}</span>
+						<a href={feed()?.site_url ?? feed()?.feed_url} class="absolute inset-0">
+							<span class="sr-only">{feed()?.title}</span>
 						</a>
 					</div>
 
 					<div class="mx-auto mt-4">
 						<p class="text-gray-11 text-sm">
-							{feed()!.entry_count} entries ({feed()!.unread_entry_count} unread)
+							{feed()?.entry_count} entries ({feed()?.unread_entry_count} unread)
 						</p>
 
 						<div class="mx-auto mt-8 space-y-8">
@@ -152,7 +154,7 @@ function FeedEdit(props: { feedId: string }) {
 								<p>
 									<span class="text-gray-a11">Last synced at:</span>
 									<br />
-									{feed()!.last_synced_at ? (
+									{feed()?.last_synced_at ? (
 										<span>
 											{Intl.DateTimeFormat(undefined, {
 												year: "numeric",
@@ -162,7 +164,7 @@ function FeedEdit(props: { feedId: string }) {
 												minute: "numeric",
 												second: "numeric",
 												hour12: false,
-											}).format(new Date(feed()!.last_synced_at!))}
+											}).format(new Date(feed()?.last_synced_at!))}
 										</span>
 									) : (
 										<span>never</span>
@@ -176,28 +178,151 @@ function FeedEdit(props: { feedId: string }) {
 									{syncError()}
 								</p>
 							) : null}
-							<form class="space-y-6">
-								<Input label="Title" value={feed()!.title} />
-
-								<Input label="Site URL" value={feed()!.site_url} />
-
-								<Input label="Feed URL" value={feed()!.feed_url} />
-
-								<div class="flex justify-end">
-									<Button>Save</Button>
-								</div>
-							</form>
+							<EditForm
+								feed={feed()!}
+								feedId={props.feedId}
+								onUpdated={(updatedFeed) => setLatestFeed(updatedFeed)}
+							/>
 
 							<hr class="border-gray-a3 border-t" />
 
-							<div class="space-x-2">
-								<Button variant="destructive">Delete</Button>
-							</div>
+							<DeleteSection feedId={props.feedId} />
 						</div>
 					</div>
 				</>
 			) : null}
 		</>
+	);
+}
+
+function EditForm(props: {
+	feed: FeedWithEntryCounts;
+	feedId: string;
+	onUpdated: (feed: FeedWithEntryCounts) => void;
+}) {
+	const [state, setState] = createStore({
+		saveStatus: "idle" as "idle" | "saving" | "saved" | "error",
+		saveError: null as string | null,
+	});
+	const isSaving = () => state.saveStatus === "saving";
+
+	async function onSubmit(event: SubmitEvent) {
+		event.preventDefault();
+
+		setState({
+			saveStatus: "saving",
+			saveError: null,
+		});
+
+		try {
+			const form = event.currentTarget as HTMLFormElement;
+			const data = new FormData(form);
+			const title = String(data.get("title") ?? "").trim();
+			const siteUrl = String(data.get("siteUrl") ?? "").trim();
+			const feedUrl = String(data.get("feedUrl") ?? "").trim();
+
+			const updatedFeed = await api<FeedWithEntryCounts>({
+				method: "PUT",
+				path: `/v1/feeds/${props.feedId}`,
+				body: {
+					title,
+					feed_url: feedUrl,
+					site_url: siteUrl ? siteUrl : null,
+				},
+			});
+
+			props.onUpdated(updatedFeed);
+			setState("saveStatus", "saved");
+			revalidate(getFeed.keyFor(props.feedId));
+			revalidate(getFeeds.key);
+
+			setTimeout(() => {
+				setState((prev) => {
+					if (prev.saveStatus === "saved") {
+						return { ...prev, saveStatus: "idle" };
+					}
+					return prev;
+				});
+			}, 2000);
+		} catch (error) {
+			setState({
+				saveStatus: "error",
+				saveError: error instanceof Error ? error.message : "Error saving feed",
+			});
+		}
+	}
+
+	return (
+		<form class="space-y-6" onSubmit={onSubmit}>
+			<Input label="Title" name="title" value={props.feed.title} required />
+
+			<Input label="Site URL" name="siteUrl" value={props.feed.site_url ?? ""} />
+
+			<Input label="Feed URL" name="feedUrl" value={props.feed.feed_url} required />
+
+			<div class="flex justify-end">
+				<div class="flex items-center gap-3">
+					{state.saveError ? (
+						<p class="bg-red-a4 border-red-a6 border p-3 text-sm">{state.saveError}</p>
+					) : state.saveStatus === "saved" ? (
+						<p class="text-green-11 text-sm">Saved.</p>
+					) : null}
+					<Button type="submit" isLoading={isSaving()}>
+						Save
+					</Button>
+				</div>
+			</div>
+		</form>
+	);
+}
+
+function DeleteSection(props: { feedId: string }) {
+	const navigate = useNavigate();
+	const [state, setState] = createStore({
+		meta: {
+			deleteError: null as string | null,
+			isDeleting: false,
+		},
+	});
+
+	async function onDelete() {
+		if (state.meta.isDeleting) return;
+		if (!confirm("Delete this feed? This will remove all entries.")) return;
+
+		setState("meta", {
+			isDeleting: true,
+			deleteError: null,
+		});
+
+		try {
+			await api<void>({
+				method: "DELETE",
+				path: `/v1/feeds/${props.feedId}`,
+			});
+			revalidate(getFeeds.key);
+			navigate("/feeds");
+		} catch (error) {
+			setState("meta", {
+				deleteError: error instanceof Error ? error.message : "Failed to delete feed",
+			});
+		} finally {
+			setState("meta", {
+				isDeleting: false,
+			});
+		}
+	}
+
+	return (
+		<div class="space-y-3">
+			<div class="space-x-2">
+				<Button variant="destructive" onClick={onDelete} isLoading={state.meta.isDeleting}>
+					Delete
+				</Button>
+			</div>
+			{state.meta.deleteError ? (
+				<p class="bg-red-a4 border-red-a6 border p-3 text-sm">{state.meta.deleteError}</p>
+			) : null}
+		</div>
 	);
 }
 
