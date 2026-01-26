@@ -266,35 +266,37 @@ function EntriesList(props: FilterParams) {
 	const prevHref = () =>
 		buildPaginatedHref("left", entriesCursor()?.prev_id, "/entries", searchParams);
 
-	if (!entriesCursor()?.entries.length) {
-		return <Empty>No matches</Empty>;
-	}
-
 	return (
-		<div>
-			<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
-				{entriesCursor()?.entries?.map((entry) => {
-					const dateStr = entry.published_at || entry.entry_updated_at;
-					const date = dateStr ? new Date(dateStr) : undefined;
+		<>
+			{!entriesCursor()?.entries.length ? (
+				<Empty>No matches</Empty>
+			) : (
+				<div>
+					<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
+						{entriesCursor()?.entries?.map((entry) => {
+							const dateStr = entry.published_at || entry.entry_updated_at;
+							const date = dateStr ? new Date(dateStr) : undefined;
 
-					return (
-						<Entry
-							feedId={entry.feed_id}
-							hasIcon={entry.has_icon}
-							title={entry.title}
-							date={date}
-							commentsUrl={entry.comments_url}
-							url={entry.url}
-						/>
-					);
-				})}
-			</ul>
+							return (
+								<Entry
+									feedId={entry.feed_id}
+									hasIcon={entry.has_icon}
+									title={entry.title}
+									date={date}
+									commentsUrl={entry.comments_url}
+									url={entry.url}
+								/>
+							);
+						})}
+					</ul>
 
-			<div class="pwa:bottom-28 pointer-events-none fixed right-0 bottom-13 left-0 -me-6 sm:bottom-0">
-				<div class="mx-auto flex max-w-160 justify-end">
-					<Pagination prevHref={prevHref()} nextHref={nextHref()} />
+					<div class="pwa:bottom-28 pointer-events-none fixed right-0 bottom-13 left-0 -me-6 sm:bottom-0">
+						<div class="mx-auto flex max-w-160 justify-end">
+							<Pagination prevHref={prevHref()} nextHref={nextHref()} />
+						</div>
+					</div>
 				</div>
-			</div>
-		</div>
+			)}
+		</>
 	);
 }
