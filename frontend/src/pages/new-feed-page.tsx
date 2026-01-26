@@ -4,6 +4,7 @@ import { For, Ref, Show, createSignal } from "solid-js";
 import { Button, buttonStyles } from "../components/button";
 import { IconInfo } from "../components/icons/info";
 import { Input } from "../components/input";
+import { OpmlImportSection } from "../components/opml-import";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { api } from "../lib/api";
 
@@ -170,6 +171,8 @@ export default function NewFeedPage() {
 							}}
 						/>
 					</Show>
+
+					<OpmlImportSection />
 				</main>
 			</Page>
 		</>

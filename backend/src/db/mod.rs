@@ -11,6 +11,9 @@ pub use feeds::*;
 mod icons;
 pub use icons::*;
 
+mod opml;
+pub use opml::*;
+
 mod id;
 pub use id::*;
 

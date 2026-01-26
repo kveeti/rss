@@ -1,8 +1,31 @@
 use chrono::{DateTime, Utc};
+use std::collections::HashSet;
 
 use crate::db::Data;
 
 impl Data {
+    pub async fn get_existing_feed_urls(
+        &self,
+        feed_urls: &[String],
+    ) -> Result<HashSet<String>, sqlx::Error> {
+        if feed_urls.is_empty() {
+            return Ok(HashSet::new());
+        }
+
+        let rows = sqlx::query!(
+            r#"
+            select feed_url
+            from feeds
+            where feed_url = any($1)
+            "#,
+            feed_urls
+        )
+        .fetch_all(&self.pg_pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|row| row.feed_url).collect())
+    }
+
     pub async fn get_feeds_to_sync(
         &self,
         last_synced_before: DateTime<Utc>,

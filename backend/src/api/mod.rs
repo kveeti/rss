@@ -29,6 +29,11 @@ pub async fn start_api(data: Data, config: ApiConfig) {
             "/feeds",
             post(handlers::feeds::new_feed).get(handlers::feeds::query_feeds),
         )
+        .route("/feeds/import", post(handlers::feeds::import_opml))
+        .route(
+            "/feeds/import/{job_id}/events",
+            get(handlers::feeds::import_opml_events),
+        )
         .route("/feeds/{id}/icon", get(handlers::feeds::get_feed_icon))
         .route("/feeds/{id}", get(handlers::feeds::get_feed))
         .route(
@@ -63,7 +68,7 @@ async fn health() -> &'static str {
 
 fn cors(front_base_url: &str) -> CorsLayer {
     CorsLayer::new()
-        .allow_methods([Method::OPTIONS, Method::HEAD, Method::GET])
+        .allow_methods([Method::OPTIONS, Method::HEAD, Method::GET, Method::POST])
         .allow_headers([
             header::CONTENT_TYPE,
             header::ACCEPT,

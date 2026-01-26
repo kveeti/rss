@@ -4,6 +4,9 @@ pub use get_feed_icon::get_feed_icon;
 mod new_feed;
 pub use new_feed::new_feed;
 
+mod import_opml;
+pub use import_opml::{import_opml, import_opml_events};
+
 mod query_feeds;
 pub use query_feeds::query_feeds;
 

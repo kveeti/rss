@@ -19,7 +19,9 @@ export async function api<TReturnValue>(props: Props) {
 		method: props.method ?? "GET",
 	} as RequestInit;
 
-	if (props.body) {
+	if (props.body instanceof FormData) {
+		fetchProps.body = props.body;
+	} else if (props.body) {
 		fetchProps.body = JSON.stringify(props.body);
 		fetchProps.headers = { "Content-Type": "application/json" };
 	}
