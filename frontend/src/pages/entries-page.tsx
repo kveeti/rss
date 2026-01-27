@@ -279,8 +279,11 @@ function EntriesList(props: FilterParams) {
 
 							return (
 								<Entry
-									feedId={entry.feed_id}
-									hasIcon={entry.has_icon}
+									icon={{
+										feedId: entry.feed_id,
+										hasIcon: entry.has_icon,
+										fallbackUrl: entry.url,
+									}}
 									title={entry.title}
 									date={date}
 									commentsUrl={entry.comments_url}

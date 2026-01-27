@@ -20,7 +20,6 @@ export type FeedEntry = {
 	title: string;
 	url: string;
 	feed_id: string;
-	has_icon: boolean;
 	comments_url: string | null;
 	published_at: string | null;
 	entry_updated_at: string | null;

@@ -63,7 +63,12 @@ function FeedDetails(props: { feedId: string }) {
 			{(feed) => (
 				<div class="mx-auto my-4 flex w-full justify-between gap-6">
 					<div class="font-cool relative text-xl">
-						<FeedIcon class="me-2.5 inline size-5.5 align-text-bottom" feed={feed} />
+						<FeedIcon
+							class="me-2.5 inline size-5.5 align-text-bottom"
+							feedId={feed.id}
+							hasIcon={feed.has_icon}
+							fallbackUrl={feed.feed_url}
+						/>
 						<h1 class="inline font-medium">{feed.title}</h1>
 
 						<a href={feed.site_url ?? feed.feed_url} class="absolute inset-0">
@@ -157,8 +162,6 @@ function FeedEntriesList(props: { feedId: string; left?: string; right?: string;
 
 						return (
 							<Entry
-								feedId={entry.feed_id}
-								hasIcon={entry.has_icon}
 								title={entry.title}
 								date={date}
 								commentsUrl={entry.comments_url}

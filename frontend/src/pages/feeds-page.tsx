@@ -149,7 +149,12 @@ function FeedsList() {
 								></a>
 								<div class="flex gap-3">
 									<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
-										<FeedIcon feed={feed} class="size-6" />
+										<FeedIcon
+											feedId={feed.id}
+											hasIcon={feed.has_icon}
+											fallbackUrl={feed.feed_url}
+											class="size-6"
+										/>
 									</div>
 
 									<div class="flex flex-col gap-3 font-medium">
