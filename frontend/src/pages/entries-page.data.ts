@@ -28,7 +28,11 @@ export const queryEntries = query((params: FilterParams) => {
 	if (params.end) queryParams.end = params.end;
 	if (params.sort) queryParams.sort = params.sort;
 
-	return api<{ entries: Array<FeedEntry>; next_id: string | null; prev_id: string | null }>({
+	return api<{
+		entries: Array<FeedEntry & { has_icon: boolean }>;
+		next_id: string | null;
+		prev_id: string | null;
+	}>({
 		method: "GET",
 		path: "/v1/entries",
 		query: queryParams,

@@ -8,13 +8,14 @@ export function Entry(props: {
 	date: Falsy<Date>;
 	url: string;
 	commentsUrl: Falsy<string>;
-	feed: {
-		id: string;
-		has_icon: boolean;
-		feed_url: string;
-		site_url: string | null;
+	icon?: {
+		feedId?: string;
+		hasIcon?: boolean;
+		fallbackUrl?: string;
 	};
 }) {
+	const iconFallbackUrl = () => props.icon?.fallbackUrl ?? props.url;
+
 	return (
 		<li class="group/entry focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative flex flex-col gap-2 p-3 select-none">
 			<a
@@ -24,9 +25,16 @@ export function Entry(props: {
 			></a>
 
 			<div class="flex gap-3">
-				<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
-					<FeedIcon class="size-6" feed={props.feed} />
-				</div>
+				{props.icon && (
+					<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
+						<FeedIcon
+							class="size-6"
+							feedId={props.icon.feedId}
+							hasIcon={props.icon.hasIcon}
+							fallbackUrl={iconFallbackUrl()}
+						/>
+					</div>
+				)}
 
 				<div class="flex flex-col gap-1">
 					<span class="font-cool inline text-[1.3rem] select-auto group-hover/feed:underline group-has-[a[id=comments]:hover]/feed:no-underline">
@@ -56,16 +64,6 @@ export function Entry(props: {
 				</div>
 			</div>
 		</li>
-	);
-}
-
-export function EntryIcon(props: {
-	feed: { id: string; has_icon: boolean; feed_url: string; site_url: string | null };
-}) {
-	return (
-		<div class="flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
-			<FeedIcon class="size-6" feed={props.feed} />
-		</div>
 	);
 }
 

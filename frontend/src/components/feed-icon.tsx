@@ -33,18 +33,17 @@ const FALLBACK_ICON_COLORS = [
 
 const FALLBACK_ICON_NEUTRAL = "#64748B";
 
-type FeedIconFeed = {
-	id: string;
-	has_icon?: boolean;
-	feed_url: string;
-};
-
-export function FeedIcon(props: { class?: string; feed: FeedIconFeed }) {
+export function FeedIcon(props: {
+	class?: string;
+	feedId?: string;
+	hasIcon?: boolean;
+	fallbackUrl?: string;
+}) {
 	const [imgFailed, setImgFailed] = createSignal(false);
 
-	const feedId = () => props.feed.id;
-	const hasIcon = () => props.feed.has_icon;
-	const fallbackUrl = () => props.feed.feed_url;
+	const feedId = () => props.feedId;
+	const hasIcon = () => props.hasIcon;
+	const fallbackUrl = () => props.fallbackUrl;
 
 	const initial = () => getHostnameInitial(fallbackUrl());
 	const backgroundColor = () => getHostnameColor(initial());

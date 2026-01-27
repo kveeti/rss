@@ -135,7 +135,9 @@ function FeedEdit(props: { feedId: string }) {
 					<div class="font-cool relative mx-auto -my-2 -ms-12 py-2 ps-12 text-xl">
 						<FeedIcon
 							class="me-2.5 inline size-5.5 align-text-bottom min-[27rem]:-ms-8.5 min-[27rem]:me-3"
-							feed={feed()!}
+							feedId={feed()!.id}
+							hasIcon={feed()!.has_icon}
+							fallbackUrl={feed()!.feed_url}
 						/>
 						<h1 class="inline font-medium">{feed()?.title}</h1>
 
