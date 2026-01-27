@@ -23,16 +23,18 @@ pub async fn update_feed(
     let feed_url = payload.feed_url.trim();
     let site_url = normalize_optional(payload.site_url);
 
-    if title.is_empty() {
-        return Err(ApiError::BadRequest("title is required".to_string()));
-    }
     if feed_url.is_empty() {
         return Err(ApiError::BadRequest("feed_url is required".to_string()));
     }
 
     state
         .data
-        .update_feed(&feed_id, title, feed_url, site_url.as_deref())
+        .update_feed(
+            &feed_id,
+            if title.is_empty() { None } else { Some(title) },
+            feed_url,
+            site_url.as_deref(),
+        )
         .await?;
 
     let updated_feed = state

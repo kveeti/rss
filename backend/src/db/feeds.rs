@@ -2,7 +2,7 @@ use anyhow::Context;
 use chrono::{DateTime, Utc};
 use std::collections::HashSet;
 
-use crate::db::{Data, FeedWithEntryCounts};
+use crate::db::Data;
 use sqlx::query;
 
 impl Data {
@@ -130,14 +130,14 @@ impl Data {
     pub async fn update_feed(
         &self,
         feed_id: &str,
-        title: &str,
+        user_title: Option<&str>,
         feed_url: &str,
         site_url: Option<&str>,
     ) -> Result<(), sqlx::Error> {
         let updated = query!(
             r#"
             update feeds
-            set title = $2,
+            set user_title = $2,
                 feed_url = $3,
                 site_url = $4,
                 updated_at = now()
@@ -145,7 +145,7 @@ impl Data {
             returning id
             "#,
             feed_id,
-            title,
+            user_title,
             feed_url,
             site_url
         )

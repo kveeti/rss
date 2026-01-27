@@ -30,7 +30,7 @@ impl Data {
             r#"
             insert into feeds (
                 id,
-                title,
+                source_title,
                 feed_url,
                 site_url,
                 last_synced_at,
@@ -38,7 +38,7 @@ impl Data {
                 sync_started_at
             ) values ($1, $2, $3, $4, now(), 'success', NULL)
             on conflict (feed_url) do update set
-                title = $2,
+                source_title = $2,
                 site_url = $4,
                 updated_at = now(),
                 sync_started_at = NULL,
@@ -149,7 +149,9 @@ impl Data {
             FeedWithEntryCounts,
             r#"select
                 f.id,
-                f.title,
+                coalesce(f.user_title, f.source_title) as "title!",
+                f.source_title as "source_title!",
+                f.user_title,
                 f.feed_url,
                 f.site_url,
                 f.created_at,
@@ -184,7 +186,9 @@ impl Data {
             r#"
             select
                 f.id,
-                f.title,
+                coalesce(f.user_title, f.source_title) as "title!",
+                f.source_title as "source_title!",
+                f.user_title,
                 f.feed_url,
                 f.site_url,
                 f.created_at,
@@ -619,6 +623,8 @@ pub struct NewFeed {
 pub struct FeedWithEntryCounts {
     pub id: String,
     pub title: String,
+    pub source_title: String,
+    pub user_title: Option<String>,
     pub feed_url: String,
     pub site_url: Option<String>,
     pub created_at: DateTime<Utc>,

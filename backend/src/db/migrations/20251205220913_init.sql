@@ -1,6 +1,7 @@
 create table feeds (
     id varchar(26) primary key not null,
-    title text not null,
+    source_title text not null,
+    user_title text,
     feed_url text not null,
     site_url text,
     last_synced_at timestamptz,
