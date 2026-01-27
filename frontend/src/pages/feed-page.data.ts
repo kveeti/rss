@@ -5,6 +5,8 @@ import { api } from "../lib/api";
 export type FeedWithEntryCounts = {
 	id: string;
 	title: string;
+	source_title: string;
+	user_title: string | null;
 	feed_url: string;
 	site_url: string | null;
 	created_at: string;

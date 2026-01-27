@@ -96,12 +96,13 @@ impl Data {
 
         let now = Utc::now();
         let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
-            "insert into feeds (id, title, feed_url, site_url, last_synced_at, sync_started_at)",
+            "insert into feeds (id, source_title, user_title, feed_url, site_url, last_synced_at, sync_started_at)",
         );
 
         builder.push_values(feed_urls, |mut b, url| {
             b.push_bind(create_id());
             b.push_bind(url);
+            b.push_bind::<Option<String>>(None);
             b.push_bind(url);
             b.push_bind::<Option<String>>(None);
             b.push_bind::<Option<DateTime<Utc>>>(None);

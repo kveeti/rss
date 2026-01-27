@@ -256,7 +256,12 @@ function EditForm(props: {
 
 	return (
 		<form class="space-y-6" onSubmit={onSubmit}>
-			<Input label="Title" name="title" value={props.feed.title} required />
+			<Input
+				label="Title"
+				name="title"
+				value={props.feed.user_title ?? ""}
+				placeholder={props.feed.source_title}
+			/>
 
 			<Input label="Site URL" name="siteUrl" value={props.feed.site_url ?? ""} />
 
