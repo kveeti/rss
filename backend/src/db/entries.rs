@@ -94,7 +94,8 @@ impl Data {
                 r#"
                 with icon as (
                     insert into icons (id, hash, data, content_type) values ($1, $2, $3, $4)
-                    on conflict (hash) do nothing
+                    on conflict (hash) do update
+                        set hash = excluded.hash
                     returning id
                 )
                 insert into feeds_icons (feed_id, icon_id)
