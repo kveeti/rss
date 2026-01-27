@@ -9,7 +9,12 @@ export function Boundaries(props: {
 	const isRouting = useIsRouting();
 
 	return (
-		<ErrorBoundary fallback={(_error, reset) => props.error(reset)}>
+		<ErrorBoundary
+			fallback={(error, reset) => {
+				console.error("ErrorBoundary caught error", error);
+				return props.error(reset);
+			}}
+		>
 			<Suspense fallback={props.loading}>
 				<Show when={!isRouting()}>{props.children}</Show>
 			</Suspense>
