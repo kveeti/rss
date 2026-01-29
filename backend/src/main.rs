@@ -20,9 +20,9 @@ pub async fn main() {
 
     let config = Config::new().expect("valid config");
 
-    let data = db::Data::new(&config.database_url)
+    let data = db::new_pg_data(&config.database_url)
         .await
-        .expect("creating Data");
+        .expect("creating data");
 
     let _ = tokio::join!(
         feed_loader::feed_sync_loop(data.clone()),

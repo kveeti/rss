@@ -1,8 +1,4 @@
-use std::{
-    collections::HashSet,
-    convert::Infallible,
-    time::Duration,
-};
+use std::{collections::HashSet, convert::Infallible, time::Duration};
 
 use axum::{
     Json,
@@ -153,19 +149,17 @@ pub async fn import_opml_events(
     ))
 }
 
-async fn run_import_job(
-    data: crate::db::Data,
-    job_id: String,
-    feed_urls: Vec<String>,
-) {
+async fn run_import_job(data: crate::db::Data, job_id: String, feed_urls: Vec<String>) {
     if feed_urls.is_empty() {
-        let _ = data.update_opml_import_job_status(&job_id, "imported").await;
+        let _ = data
+            .update_opml_import_job_status(&job_id, "imported")
+            .await;
         return;
     }
 
     let job_id_clone = job_id.clone();
     stream::iter(feed_urls)
-        .for_each_concurrent(10, |url| {
+        .for_each_concurrent(5, |url| {
             let data = data.clone();
             let job_id = job_id_clone.clone();
             async move {
@@ -229,27 +223,22 @@ async fn run_import_job(
         })
         .await;
 
-    if let Err(err) = data.update_opml_import_job_status(&job_id, "imported").await {
+    if let Err(err) = data
+        .update_opml_import_job_status(&job_id, "imported")
+        .await
+    {
         error!("error updating opml import job status: {err:#}");
     }
 }
 
-async fn mark_import_failure(
-    data: &crate::db::Data,
-    job_id: &str,
-    url: &str,
-    reason: String,
-) {
+async fn mark_import_failure(data: &crate::db::Data, job_id: &str, url: &str, reason: String) {
     if let Err(err) = data
         .update_opml_import_item(job_id, url, "failed", Some(&reason))
         .await
     {
         error!("error updating opml import item: {err:#}");
     }
-    if let Err(err) = data
-        .increment_opml_import_job_counts(job_id, 0, 0, 1)
-        .await
-    {
+    if let Err(err) = data.increment_opml_import_job_counts(job_id, 0, 0, 1).await {
         error!("error updating opml import job counts: {err:#}");
     }
 }
@@ -300,9 +289,7 @@ async fn read_opml_file(multipart: &mut Multipart) -> Result<Vec<u8>, ApiError> 
                 .map_err(|err| ApiError::BadRequest(err.to_string()))?
             {
                 if bytes.len() + chunk.len() > MAX_OPML_BYTES {
-                    return Err(ApiError::BadRequest(
-                        "opml file too large".to_string(),
-                    ));
+                    return Err(ApiError::BadRequest("opml file too large".to_string()));
                 }
                 bytes.extend_from_slice(&chunk);
             }
@@ -324,8 +311,7 @@ fn extract_opml_feed_urls(bytes: &[u8]) -> Result<Vec<String>, ApiError> {
             Ok(XmlEvent::Start(event)) | Ok(XmlEvent::Empty(event)) => {
                 if event.name().as_ref() == b"outline" {
                     for attr in event.attributes().with_checks(false) {
-                        let attr =
-                            attr.map_err(|err| ApiError::BadRequest(err.to_string()))?;
+                        let attr = attr.map_err(|err| ApiError::BadRequest(err.to_string()))?;
                         if attr.key.as_ref() == b"xmlUrl" {
                             let value = attr
                                 .unescape_value()
@@ -339,9 +325,7 @@ fn extract_opml_feed_urls(bytes: &[u8]) -> Result<Vec<String>, ApiError> {
             }
             Ok(XmlEvent::Eof) => break,
             Err(err) => {
-                return Err(ApiError::BadRequest(format!(
-                    "invalid opml: {err}"
-                )));
+                return Err(ApiError::BadRequest(format!("invalid opml: {err}")));
             }
             _ => {}
         }

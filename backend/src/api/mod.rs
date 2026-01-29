@@ -1,7 +1,7 @@
 use axum::{
     Router,
     http::{HeaderValue, Method, header},
-    routing::{get, post}
+    routing::{get, post},
 };
 use tokio::net::TcpListener;
 use tower_http::cors::CorsLayer;
