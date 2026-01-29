@@ -6,7 +6,10 @@ use std::{collections::HashSet, sync::Arc};
 mod id;
 pub use id::*;
 
-mod pg;
+pub(crate) mod pg;
+
+#[cfg(test)]
+mod tests;
 
 #[async_trait]
 pub trait DataI: Send + Sync {

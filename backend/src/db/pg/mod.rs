@@ -11,9 +11,20 @@ use super::{
     OpmlImportJobSummary, QueryFeedsFilters, SortOrder, create_id,
 };
 
+#[cfg(test)]
+pub(super) mod test_utils;
+
 #[derive(Clone)]
 pub(super) struct PgData {
     pg_pool: PgPool,
+}
+
+impl PgData {
+    /// Create PgData from an existing pool (used for testing)
+    #[cfg(test)]
+    pub(super) fn from_pool(pool: PgPool) -> Self {
+        Self { pg_pool: pool }
+    }
 }
 
 pub(super) async fn new_pg_data(database_url: &str) -> Result<Data> {
@@ -86,36 +97,38 @@ impl DataI for PgData {
         .context("error upserting feed")?
         .id;
 
-        let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
-            "insert into entries (id, feed_id, title, url, comments_url, published_at, entry_updated_at)",
-        );
+        if !unique_entries.is_empty() {
+            let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
+                "insert into entries (id, feed_id, title, url, comments_url, published_at, entry_updated_at)",
+            );
 
-        builder.push_values(unique_entries, |mut b, entry| {
-            b.push_bind(create_id());
-            b.push_bind(&feed_id);
-            b.push_bind(entry.title);
-            b.push_bind(entry.url);
-            b.push_bind(entry.comments_url);
-            b.push_bind(entry.published_at);
-            b.push_bind(entry.entry_updated_at);
-        });
+            builder.push_values(unique_entries, |mut b, entry| {
+                b.push_bind(create_id());
+                b.push_bind(&feed_id);
+                b.push_bind(entry.title);
+                b.push_bind(entry.url);
+                b.push_bind(entry.comments_url);
+                b.push_bind(entry.published_at);
+                b.push_bind(entry.entry_updated_at);
+            });
 
-        builder.push(
-            r#"
-            on conflict (feed_id, url) do update set
-                title = excluded.title,
-                url = excluded.url,
-                comments_url = excluded.comments_url,
-                published_at = excluded.published_at,
-                entry_updated_at = excluded.entry_updated_at
-            "#,
-        );
+            builder.push(
+                r#"
+                on conflict (feed_id, url) do update set
+                    title = excluded.title,
+                    url = excluded.url,
+                    comments_url = excluded.comments_url,
+                    published_at = excluded.published_at,
+                    entry_updated_at = excluded.entry_updated_at
+                "#,
+            );
 
-        builder
-            .build()
-            .execute(&mut *tx)
-            .await
-            .context("error inserting entries")?;
+            builder
+                .build()
+                .execute(&mut *tx)
+                .await
+                .context("error inserting entries")?;
+        }
 
         if let Some(icon) = icon {
             let icon_id = create_id();
