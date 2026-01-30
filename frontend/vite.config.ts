@@ -21,6 +21,12 @@ export default defineConfig({
 	build: {
 		target: "esnext",
 	},
+	html: {
+		cspNonce: "_CSP_",
+	},
+	define: {
+		"import.meta.env.VITE_API_BASE_URL": '"_API_"',
+	},
 	clearScreen: false,
 	server: { port: 3000 },
 	preview: { port: 3000 },
