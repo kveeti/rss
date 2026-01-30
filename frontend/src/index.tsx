@@ -1,9 +1,11 @@
 /* @refresh reload */
 import { Navigate, type RouteDefinition, Router } from "@solidjs/router";
 import "solid-devtools";
-import { Suspense, lazy } from "solid-js";
+import { Show, Suspense, createSignal, lazy } from "solid-js";
 import { render } from "solid-js/web";
+import { registerSW } from "virtual:pwa-register";
 
+import { Button } from "./components/button";
 import { NavPaginationLinks } from "./components/pagination";
 import { DefaultNavLinks, Nav, NavWrap } from "./layout";
 import { preloadsEntriesPage } from "./pages/entries-page.data";
@@ -15,6 +17,13 @@ import { preloadsUnreadPage } from "./pages/unread-page.data";
 import "./styles.css";
 
 const root = document.getElementById("root");
+
+const [showUpdatePopup, setShowUpdatePopup] = createSignal(false);
+const updateSW = registerSW({
+	onNeedRefresh() {
+		setShowUpdatePopup(true);
+	},
+});
 
 if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
 	throw new Error(
@@ -137,4 +146,35 @@ export const routes: RouteDefinition[] = [
 	},
 ];
 
-render(() => <Router root={(props) => props.children}>{routes}</Router>, root!);
+render(
+	() => (
+		<Router
+			root={(props) => (
+				<>
+					{props.children}
+					<Show when={showUpdatePopup()}>
+						<div class="fixed right-0 bottom-0 z-50 p-4">
+							<div class="bg-gray-2 border-gray-a5 border p-3">
+								<p class="text-gray-12">
+									A new version is available. Click refresh to update
+								</p>
+								<div class="mt-3 flex justify-end gap-2">
+									<Button
+										variant="ghost"
+										onClick={() => setShowUpdatePopup(false)}
+									>
+										Close
+									</Button>
+									<Button onClick={() => updateSW()}>Refresh</Button>
+								</div>
+							</div>
+						</div>
+					</Show>
+				</>
+			)}
+		>
+			{routes}
+		</Router>
+	),
+	root!
+);

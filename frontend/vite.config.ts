@@ -8,7 +8,8 @@ export default defineConfig({
 		devtools(),
 		solidPlugin(),
 		VitePWA({
-			registerType: "autoUpdate",
+			registerType: "prompt",
+			injectRegister: "inline",
 			devOptions: {
 				enabled: true,
 			},
