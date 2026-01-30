@@ -3,7 +3,7 @@ use axum::{
     http::{HeaderValue, Method, header},
     routing::{get, post},
 };
-use tokio::net::TcpListener;
+use tokio::{net::TcpListener, sync::watch};
 use tower_http::cors::CorsLayer;
 
 use crate::db::Data;
@@ -21,7 +21,7 @@ pub struct ApiConfig {
     pub host: String,
 }
 
-pub async fn start_api(data: Data, config: ApiConfig) {
+pub async fn start_api(data: Data, config: ApiConfig, mut shutdown_rx: watch::Receiver<bool>) {
     let state = AppState { data };
 
     let v1_routes = Router::new()
@@ -63,6 +63,10 @@ pub async fn start_api(data: Data, config: ApiConfig) {
     tracing::info!("listening at {}", listener.local_addr().unwrap());
 
     axum::serve(listener, api_routes)
+        .with_graceful_shutdown(async move {
+            let _ = shutdown_rx.wait_for(|&v| v).await;
+            tracing::info!("api server shutting down");
+        })
         .await
         .expect("axum successful serve");
 }

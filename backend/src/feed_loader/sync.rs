@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use chrono::Utc;
 use futures::{StreamExt, stream};
+use tokio::sync::watch;
 
 use crate::{
     db::Data,
@@ -13,11 +14,20 @@ use crate::{
 
 static MAX_SYNCING_FEEDS: usize = 10;
 
-pub async fn feed_sync_loop(data: Data) -> anyhow::Result<()> {
+pub async fn feed_sync_loop(
+    data: Data,
+    mut shutdown_rx: watch::Receiver<bool>,
+) -> anyhow::Result<()> {
     let mut ticker = tokio::time::interval(Duration::from_secs(60));
 
     loop {
-        ticker.tick().await;
+        tokio::select! {
+            _ = ticker.tick() => {}
+            _ = shutdown_rx.wait_for(|&v| v) => {
+                tracing::info!("feed sync loop shutting down");
+                return Ok(());
+            }
+        }
 
         let feeds = data
             .get_feeds_to_sync(Utc::now() - chrono::Duration::hours(1))
