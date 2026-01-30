@@ -2,7 +2,7 @@ use once_cell::sync::Lazy;
 use reqwest::{Client, Response, StatusCode, redirect};
 use std::collections::HashMap;
 use std::time::Duration;
-use texting_robots::{Robot, get_robots_url};
+use texting_robots::Robot;
 use url::Url;
 
 use crate::{
@@ -474,7 +474,7 @@ impl<S> FeedLoader<S> {
         Ok(response)
     }
 
-    async fn is_allowed(&mut self, url: &str) -> Result<bool, FetchError> {
+    async fn is_allowed(&mut self, _url: &str) -> Result<bool, FetchError> {
         Ok(true)
         // let origin = Url::parse(url)
         //     .map_err(|_| FetchError::InvalidUrl)?
