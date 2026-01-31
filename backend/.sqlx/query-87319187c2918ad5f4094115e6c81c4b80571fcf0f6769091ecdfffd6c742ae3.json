@@ -1,0 +1,88 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "select\n                f.id,\n                coalesce(f.user_title, f.source_title) as \"title!\",\n                f.source_title as \"source_title!\",\n                f.user_title,\n                f.feed_url,\n                f.site_url,\n                f.created_at,\n                f.last_synced_at,\n                f.last_sync_result,\n                count(e.id) as \"entry_count!\",\n                count(e.id) filter (where e.read_at is null) as \"unread_entry_count!\",\n                exists (\n                    select 1\n                    from feeds_icons fi\n                    where fi.feed_id = f.id\n                ) as \"has_icon!\"\n            from feeds f\n            left join entries e on e.feed_id = f.id\n            where f.id = $1\n            group by f.id\n            order by f.created_at desc\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "title!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "source_title!",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "user_title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "feed_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 5,
+        "name": "site_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 6,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 7,
+        "name": "last_synced_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "last_sync_result",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 9,
+        "name": "entry_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 10,
+        "name": "unread_entry_count!",
+        "type_info": "Int8"
+      },
+      {
+        "ordinal": 11,
+        "name": "has_icon!",
+        "type_info": "Bool"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      false,
+      null,
+      false,
+      true,
+      false,
+      true,
+      false,
+      true,
+      true,
+      null,
+      null,
+      null
+    ]
+  },
+  "hash": "87319187c2918ad5f4094115e6c81c4b80571fcf0f6769091ecdfffd6c742ae3"
+}

@@ -1,0 +1,17 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update opml_import_jobs\n            set imported = imported + $1,\n                skipped = skipped + $2,\n                failed = failed + $3,\n                updated_at = now()\n            where id = $4\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Int8",
+        "Int8",
+        "Int8",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "f1abfabb42de08f4438b81904a679852e007f69dade27763f450b6e90602d8de"
+}

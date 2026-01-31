@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update opml_import_jobs\n            set status = $1,\n                updated_at = now()\n            where id = $2\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "bc72a6c339bdba6583cbb2b393dc704ab3c4ab0056e132c1b215d1ee4a10142a"
+}

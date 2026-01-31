@@ -1,0 +1,25 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update feeds\n            set user_title = $2,\n                feed_url = $3,\n                site_url = $4,\n                updated_at = now()\n            where id = $1\n            returning id\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "21ff67d6439605ce6658bebb5ce094c9204b05adcaf756a106375c2430a34c27"
+}

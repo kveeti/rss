@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            select feed_url\n            from feeds\n            where feed_url = any($1)\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "feed_url",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "TextArray"
+      ]
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "a40819cedbcaa43978e1dd10edc560fd9d1aaa23123f80cc9175ccee0268af3e"
+}
