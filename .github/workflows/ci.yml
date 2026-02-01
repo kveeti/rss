@@ -1,4 +1,4 @@
-name: backend
+name: ci
 
 on:
   push:
@@ -6,23 +6,24 @@ on:
       - main
     paths:
       - 'backend/**'
+      - 'frontend/**'
   pull_request:
     branches:
       - main
     paths:
       - 'backend/**'
+      - 'frontend/**'
 
 env:
-  DIR: backend
   DOCKERHUB_USERNAME: veetik
-  DOCKERHUB_IMAGE: veetik/rss_backend
+  DOCKERHUB_IMAGE: veetik/rss
 
 jobs:
   checks:
     runs-on: ubuntu-24.04-arm
     defaults:
       run:
-        working-directory: ${{ env.DIR }}
+        working-directory: backend
 
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
@@ -30,57 +31,69 @@ jobs:
         with:
           components: rustfmt
 
-      - name: check formatting
+      - name: "check formatting"
         run: cargo fmt --check
+
 
   amd64_build_and_push_docker_image:
     name: build and push docker image (amd64)
     runs-on: ubuntu-24.04
     needs: checks
-    defaults:
-      run:
-        working-directory: ${{ env.DIR }}
     steps:
-      - name: checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
 
-      - name: setup rust toolchain
+      - name: "frontend: setup pnpm"
+        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # 4.0.0
+        with:
+          package_json_file: frontend/package.json
+          cache: true
+          cache_dependency_path: frontend/pnpm-lock.yaml
+
+      - name: "frontend: install deps"
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: "frontend: build"
+        working-directory: frontend
+        run: pnpm run build
+
+      - name: "backend: setup rust toolchain"
         uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # 1.15.2
         with:
           target: x86_64-unknown-linux-musl
-          rust-src-dir: ${{ env.DIR }}
+          rust-src-dir: backend
 
-      - name: setup sccache
+      - name: "backend: setup sccache"
         uses: mozilla-actions/sccache-action@65101d47ea8028ed0c98a1cdea8dd9182e9b5133 # 0.0.8
 
-      - name: install musl-tools
+      - name: "backend: install musl-tools"
         uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40 # 1.4.3
         with:
           packages: musl-tools
-          version: 1.2.4-2
 
-      - name: build binary
+      - name: "backend: build binary"
         run: |
+          cd backend && \
           cargo build --release --target x86_64-unknown-linux-musl && \
           cp ./target/x86_64-unknown-linux-musl/release/backend ./backend && \
-          chmod +x backend
+          chmod +x ./backend
         env:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
 
-      - name: setup docker
+      - name: "docker: setup qemu"
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # 3.6.0
 
-      - name: setup buildx
+      - name: "docker: setup buildx"
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # 3.10.0
 
-      - name: login to dockerhub
+      - name: "docker: login to dockerhub"
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # 3.4.0
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: generate metadata for docker image
+      - name: "docker: generate metadata image"
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # 5.7.0
         id: meta
         with:
@@ -88,68 +101,79 @@ jobs:
           tags: |
             type=sha
             type=ref,event=pr
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: build and push docker image
+      - name: "docker: build and push image"
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # 6.18.0
         with:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          context: ${{ env.DIR }}
-          file: ${{ env.DIR }}/Dockerfile
+          context: .
           platforms: linux/amd64
-          cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:buildcache,mode=max
+
 
   arm64_build_and_push_docker_image:
     name: build and push docker image (arm64)
     runs-on: ubuntu-24.04-arm
     needs: checks
-    defaults:
-      run:
-        working-directory: ${{ env.DIR }}
     steps:
-      - name: checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
 
-      - name: setup rust toolchain
+      - name: "frontend: setup pnpm"
+        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # 4.0.0
+        with:
+          package_json_file: frontend/package.json
+          cache: true
+          cache_dependency_path: frontend/pnpm-lock.yaml
+
+      - name: "frontend: install deps"
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: "frontend: build"
+        working-directory: frontend
+        run: pnpm run build
+
+      - name: "backend: setup rust toolchain"
         uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # 1.15.2
         with:
           target: aarch64-unknown-linux-musl
-          rust-src-dir: ${{ env.DIR }}
+          rust-src-dir: backend
 
-      - name: setup sccache
+      - name: "backend: setup sccache"
         uses: mozilla-actions/sccache-action@65101d47ea8028ed0c98a1cdea8dd9182e9b5133 # 0.0.8
 
-      - name: install musl-tools
+      - name: "backend: install musl-tools"
         uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40 # 1.4.3
         with:
           packages: musl-tools@1.2.4-2,gcc-aarch64-linux-gnu
 
-      - name: build binary
+      - name: "backend: build binary"
         run: |
+          cd backend && \
           cargo build --release --target aarch64-unknown-linux-musl && \
           cp ./target/aarch64-unknown-linux-musl/release/backend ./backend && \
-          chmod +x backend
+          chmod +x ./backend
         env:
           SCCACHE_GHA_ENABLED: "true"
           RUSTC_WRAPPER: "sccache"
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER: aarch64-linux-gnu-gcc
           CC_aarch64_unknown_linux_musl: aarch64-linux-gnu-gcc
 
-      - name: setup docker
+      - name: "docker: setup qemu"
         uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # 3.6.0
 
-      - name: setup buildx
+      - name: "docker: setup buildx"
         uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # 3.10.0
 
-      - name: login to dockerhub
+      - name: "docker: login to dockerhub"
         uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # 3.4.0
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: generate metadata for docker image
+      - name: "docker: generate metadata image"
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # 5.7.0
         id: meta
         with:
@@ -157,15 +181,14 @@ jobs:
           tags: |
             type=sha
             type=ref,event=pr
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: build and push docker image
+      - name: "docker: build and push image"
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # 6.18.0
         with:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          context: ${{ env.DIR }}
-          file: ${{ env.DIR }}/Dockerfile
+          context: .
           platforms: linux/arm64
-          cache-from: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKERHUB_IMAGE }}:buildcache,mode=max
+

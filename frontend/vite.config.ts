@@ -9,25 +9,25 @@ export default defineConfig({
 		solidPlugin(),
 		VitePWA({
 			registerType: "prompt",
-			injectRegister: "inline",
+			injectRegister: "script-defer",
 			devOptions: {
 				enabled: true,
 			},
+
 			workbox: {
-				globPatterns: ["**/*.{js,css,html,ico,png,svg,woff,woff2,ttf,eot}"],
+				globPatterns: ["**/*.{js,html,css,ico,png,svg,woff,woff2,ttf,eot}"],
 			},
 		}),
 	],
 	build: {
 		target: "esnext",
 	},
-	html: {
-		cspNonce: "_CSP_",
-	},
-	define: {
-		"import.meta.env.VITE_API_BASE_URL": '"_API_"',
-	},
 	clearScreen: false,
-	server: { port: 3000 },
+	server: {
+		port: 3000,
+		proxy: {
+			"/api": "http://localhost:8000",
+		},
+	},
 	preview: { port: 3000 },
 });

@@ -1,14 +1,13 @@
 use axum::{
     Router,
-    http::{HeaderValue, Method, header},
     routing::{get, post},
 };
 use tokio::{net::TcpListener, sync::watch};
-use tower_http::cors::CorsLayer;
 
 use crate::db::Data;
 
 mod error;
+mod frontend;
 mod handlers;
 
 #[derive(Clone)]
@@ -17,8 +16,8 @@ struct AppState {
 }
 
 pub struct ApiConfig {
-    pub front_base_url: String,
     pub host: String,
+    pub frontend_dir: Option<String>,
 }
 
 pub async fn start_api(data: Data, config: ApiConfig, mut shutdown_rx: watch::Receiver<bool>) {
@@ -47,22 +46,26 @@ pub async fn start_api(data: Data, config: ApiConfig, mut shutdown_rx: watch::Re
         )
         .route("/feeds/{id}/sync", post(handlers::feeds::sync_feed))
         .route("/entries", get(handlers::entries::query_entries))
-        .layer(cors(&config.front_base_url))
         .with_state(state);
 
-    let api_routes = Router::new().nest(
+    let mut app = Router::new().nest(
         "/api",
         Router::new()
             .nest("/v1", v1_routes)
             .route("/health", get(health)),
     );
 
-    let listener = TcpListener::bind(config.host)
+    if let Some(dir) = &config.frontend_dir {
+        tracing::info!("serving frontend from {dir}");
+        app = app.merge(frontend::router(dir));
+    }
+
+    let listener = TcpListener::bind(&config.host)
         .await
         .expect("tcp listener successful bind");
     tracing::info!("listening at {}", listener.local_addr().unwrap());
 
-    axum::serve(listener, api_routes)
+    axum::serve(listener, app)
         .with_graceful_shutdown(async move {
             let _ = shutdown_rx.wait_for(|&v| v).await;
             tracing::info!("api server shutting down");
@@ -73,27 +76,4 @@ pub async fn start_api(data: Data, config: ApiConfig, mut shutdown_rx: watch::Re
 
 async fn health() -> &'static str {
     "OK"
-}
-
-fn cors(front_base_url: &str) -> CorsLayer {
-    CorsLayer::new()
-        .allow_methods([
-            Method::OPTIONS,
-            Method::HEAD,
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::DELETE,
-        ])
-        .allow_headers([
-            header::CONTENT_TYPE,
-            header::ACCEPT,
-            header::ACCEPT_ENCODING,
-            header::ACCEPT_LANGUAGE,
-        ])
-        .allow_origin(
-            front_base_url
-                .parse::<HeaderValue>()
-                .expect("allow origin value"),
-        )
 }
