@@ -69,7 +69,7 @@ jobs:
       - name: "backend: install musl-tools"
         uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # 1.6.0
         with:
-          packages: musl-tools
+          packages: musl-tools=1.2.4-2
 
       - name: "backend: build binary"
         run: |
@@ -147,7 +147,7 @@ jobs:
       - name: "backend: install musl-tools"
         uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # 1.6.0
         with:
-          packages: musl-tools@1.2.4-2,gcc-aarch64-linux-gnu
+          packages: musl-tools=1.2.4-2 gcc-aarch64-linux-gnu
 
       - name: "backend: build binary"
         run: |
