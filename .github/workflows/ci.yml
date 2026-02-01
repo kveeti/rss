@@ -26,8 +26,8 @@ jobs:
         working-directory: backend
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
-      - uses: actions-rust-lang/setup-rust-toolchain@9d7e65c320fdb52dcd45ffaa68deb6c02c8754d9 # 1.12.0
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+      - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # 1.15.2
         with:
           components: rustfmt
 
@@ -40,10 +40,10 @@ jobs:
     runs-on: ubuntu-24.04
     needs: checks
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
 
       - name: "frontend: setup pnpm"
-        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # 4.0.0
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # 4.2.0
         with:
           package_json_file: frontend/package.json
           cache: true
@@ -64,12 +64,12 @@ jobs:
           rust-src-dir: backend
 
       - name: "backend: setup sccache"
-        uses: mozilla-actions/sccache-action@65101d47ea8028ed0c98a1cdea8dd9182e9b5133 # 0.0.8
+        uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # 0.0.9
 
       - name: "backend: install musl-tools"
-        uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40 # 1.4.3
+        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # 1.6.0
         with:
-          packages: musl-tools
+          packages: musl-tools=1.2.4-2
 
       - name: "backend: build binary"
         run: |
@@ -82,19 +82,19 @@ jobs:
           RUSTC_WRAPPER: "sccache"
 
       - name: "docker: setup qemu"
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # 3.6.0
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # 3.7.0
 
       - name: "docker: setup buildx"
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # 3.10.0
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # 3.12.0
 
       - name: "docker: login to dockerhub"
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # 3.4.0
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # 3.7.0
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "docker: generate metadata image"
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # 5.7.0
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # 5.10.0
         id: meta
         with:
           images: ${{ env.DOCKERHUB_IMAGE }}
@@ -118,10 +118,10 @@ jobs:
     runs-on: ubuntu-24.04-arm
     needs: checks
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # 4.2.2
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
 
       - name: "frontend: setup pnpm"
-        uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # 4.0.0
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # 4.2.0
         with:
           package_json_file: frontend/package.json
           cache: true
@@ -142,12 +142,12 @@ jobs:
           rust-src-dir: backend
 
       - name: "backend: setup sccache"
-        uses: mozilla-actions/sccache-action@65101d47ea8028ed0c98a1cdea8dd9182e9b5133 # 0.0.8
+        uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad # 0.0.9
 
       - name: "backend: install musl-tools"
-        uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40 # 1.4.3
+        uses: awalsh128/cache-apt-pkgs-action@acb598e5ddbc6f68a970c5da0688d2f3a9f04d05 # 1.6.0
         with:
-          packages: musl-tools@1.2.4-2,gcc-aarch64-linux-gnu
+          packages: musl-tools=1.2.4-2 gcc-aarch64-linux-gnu
 
       - name: "backend: build binary"
         run: |
@@ -162,19 +162,19 @@ jobs:
           CC_aarch64_unknown_linux_musl: aarch64-linux-gnu-gcc
 
       - name: "docker: setup qemu"
-        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # 3.6.0
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # 3.7.0
 
       - name: "docker: setup buildx"
-        uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # 3.10.0
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # 3.12.0
 
       - name: "docker: login to dockerhub"
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # 3.4.0
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # 3.7.0
         with:
           username: ${{ env.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: "docker: generate metadata image"
-        uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # 5.7.0
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # 5.10.0
         id: meta
         with:
           images: ${{ env.DOCKERHUB_IMAGE }}
