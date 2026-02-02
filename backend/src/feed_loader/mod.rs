@@ -378,8 +378,12 @@ impl FeedLoader<ParsedFeed> {
             .meta
             .site_url
             .as_deref()
-            .unwrap_or(&self.state.final_url.origin().ascii_serialization())
-            .to_owned();
+            .and_then(|site_url| {
+                Url::parse(site_url)
+                    .ok()
+                    .map(|url| url.origin().ascii_serialization())
+            })
+            .unwrap_or_else(|| self.state.final_url.origin().ascii_serialization());
 
         tracing::debug!("loading favicon from origin: {}", origin);
 
@@ -387,10 +391,13 @@ impl FeedLoader<ParsedFeed> {
         let bytes = response.bytes().await.ok()?;
         let favicon_urls = {
             let html = Html::from_bytes(&bytes);
-            html.favicon_urls()
+
+            let mut favicon_urls = html.favicon_urls();
+            favicon_urls.push(format!("{origin}/favicon.ico"));
+            favicon_urls
         };
 
-        tracing::trace!("found {} favicon candidates", favicon_urls.len());
+        tracing::trace!("trying {} favicon candidates", favicon_urls.len());
 
         for href in favicon_urls {
             let url = absolutize(&href, &origin);
