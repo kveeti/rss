@@ -6,7 +6,7 @@ import { BlazinglyFastLink } from "./link";
 
 export function Pagination(props: { prevHref?: string; nextHref?: string }) {
 	return (
-		<div class="pointer-events-auto flex items-center gap-2 px-3 py-2">
+		<div class="pointer-events-auto flex items-center gap-2 px-3 py-2 sm:px-0">
 			<PaginationPrev href={props.prevHref} />
 			<PaginationNext href={props.nextHref} />
 		</div>
@@ -30,7 +30,7 @@ export function PaginationNext(props: { class?: string; href?: string }) {
 		<PaginationLink
 			href={props.href}
 			class={
-				"relative before:absolute before:-inset-y-2 before:left-0 before:-right-2 before:content-[''] flex items-center justify-center py-2 ps-3 pe-2" +
+				"relative flex items-center justify-center py-2 ps-3 pe-2 before:absolute before:-inset-y-2 before:-right-2 before:left-0 before:content-['']" +
 				(props.class ? " " + props.class : "")
 			}
 		>
@@ -46,7 +46,7 @@ export function PaginationPrev(props: { class?: string; href?: string }) {
 		<PaginationLink
 			href={props.href}
 			class={
-				"relative before:absolute before:-inset-y-2 before:-left-2 before:right-0 before:content-[''] flex items-center justify-center py-2 ps-2 pe-3" +
+				"relative flex items-center justify-center py-2 ps-2 pe-3 before:absolute before:-inset-y-2 before:right-0 before:-left-2 before:content-['']" +
 				(props.class ? " " + props.class : "")
 			}
 		>
@@ -58,7 +58,7 @@ export function PaginationPrev(props: { class?: string; href?: string }) {
 
 export function NavPaginationLinks(props: { nextHref?: string; prevHref?: string }) {
 	return (
-		<div class="pointer-events-auto -me-5 flex items-center">
+		<div class="pointer-events-auto invisible -me-5 flex items-center sm:visible">
 			<PaginationPrev href={props.prevHref} class="border-none" />
 			<PaginationNext href={props.nextHref} class="border-none" />
 		</div>

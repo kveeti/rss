@@ -300,7 +300,7 @@ function EntriesList(props: FilterParams) {
 						</For>
 					</ul>
 
-					<div class="pwa:bottom-28 pointer-events-none fixed right-0 bottom-13 left-0 -me-6 sm:bottom-0">
+					<div class="pwa:bottom-28 pointer-events-none fixed right-0 bottom-13 left-0 sm:bottom-0">
 						<div class="mx-auto flex max-w-160 justify-end">
 							<Pagination prevHref={prevHref()} nextHref={nextHref()} />
 						</div>
