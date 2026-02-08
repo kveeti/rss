@@ -1,0 +1,15 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update entries\n            set read_at = $2,\n                updated_at = now()\n            where id = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Timestamptz"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "31265b1cd6e25c7936647a7689b8e7289126b0499caf9ad16563461771451445"
+}

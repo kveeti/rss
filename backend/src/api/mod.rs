@@ -46,6 +46,10 @@ pub async fn start_api(data: Data, config: ApiConfig, mut shutdown_rx: watch::Re
         )
         .route("/feeds/{id}/sync", post(handlers::feeds::sync_feed))
         .route("/entries", get(handlers::entries::query_entries))
+        .route(
+            "/entries/{id}/read",
+            post(handlers::entries::update_entry_read),
+        )
         .with_state(state);
 
     let mut app = Router::new().nest(

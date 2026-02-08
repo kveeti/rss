@@ -1,5 +1,13 @@
 import { createAsync, revalidate, useSearchParams } from "@solidjs/router";
-import { ErrorBoundary, JSX, Show, Suspense, createSignal, resetErrorBoundaries } from "solid-js";
+import {
+	ErrorBoundary,
+	For,
+	JSX,
+	Show,
+	Suspense,
+	createSignal,
+	resetErrorBoundaries,
+} from "solid-js";
 
 import { Button } from "../components/button";
 import { Empty } from "../components/empty";
@@ -273,24 +281,23 @@ function EntriesList(props: FilterParams) {
 			) : (
 				<div>
 					<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
-						{entriesCursor()?.entries?.map((entry) => {
-							const dateStr = entry.published_at || entry.entry_updated_at;
-							const date = dateStr ? new Date(dateStr) : undefined;
-
-							return (
-								<Entry
-									icon={{
-										feedId: entry.feed_id,
-										hasIcon: entry.has_icon,
-										fallbackUrl: entry.url,
-									}}
-									title={entry.title}
-									date={date}
-									commentsUrl={entry.comments_url}
-									url={entry.url}
-								/>
-							);
-						})}
+						<For each={entriesCursor()?.entries}>
+							{(entry) => (
+								<Entry.Root entry={entry}>
+									<div class="flex gap-3">
+										<Entry.Icon />
+										<Entry.Content>
+											<Entry.Title />
+											<Entry.Meta>
+												<Entry.Date />
+												<Entry.Comments />
+												<Entry.ReadToggle />
+											</Entry.Meta>
+										</Entry.Content>
+									</div>
+								</Entry.Root>
+							)}
+						</For>
 					</ul>
 
 					<div class="pwa:bottom-28 pointer-events-none fixed right-0 bottom-13 left-0 -me-6 sm:bottom-0">

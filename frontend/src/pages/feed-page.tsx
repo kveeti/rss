@@ -161,12 +161,16 @@ function FeedEntriesList(props: { feedId: string; left?: string; right?: string;
 						const date = dateStr ? new Date(dateStr) : undefined;
 
 						return (
-							<Entry
-								title={entry.title}
-								date={date}
-								commentsUrl={entry.comments_url}
-								url={entry.url}
-							/>
+							<Entry.Root entry={entry}>
+								<Entry.Content>
+									<Entry.Title />
+									<Entry.Meta>
+										<Entry.Date />
+										<Entry.Comments />
+										<Entry.ReadToggle />
+									</Entry.Meta>
+								</Entry.Content>
+							</Entry.Root>
 						);
 					}}
 				</For>

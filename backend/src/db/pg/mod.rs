@@ -978,4 +978,27 @@ impl DataI for PgData {
 
         Ok(rows)
     }
+
+    async fn update_entry_read_status(
+        &self,
+        entry_id: &str,
+        read: bool,
+    ) -> Result<(), sqlx::Error> {
+        let read_at = if read { Some(Utc::now()) } else { None };
+
+        query!(
+            r#"
+            update entries
+            set read_at = $2,
+                updated_at = now()
+            where id = $1
+            "#,
+            entry_id,
+            read_at
+        )
+        .execute(&self.pg_pool)
+        .await?;
+
+        Ok(())
+    }
 }

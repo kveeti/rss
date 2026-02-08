@@ -116,6 +116,9 @@ pub trait DataI: Send + Sync {
         job_id: &str,
         limit: i64,
     ) -> Result<Vec<OpmlImportItem>, sqlx::Error>;
+
+    async fn update_entry_read_status(&self, entry_id: &str, read: bool)
+    -> Result<(), sqlx::Error>;
 }
 
 pub type Data = Arc<dyn DataI>;

@@ -1,79 +1,191 @@
+import { revalidate } from "@solidjs/router";
+import {
+	type Accessor,
+	type JSX,
+	type ParentProps,
+	createContext,
+	createSignal,
+	useContext,
+} from "solid-js";
+
+import { api } from "../lib/api";
+import { queryEntries } from "../pages/entries-page.data";
+import { type FeedEntry, getFeedEntries } from "../pages/feed-page.data";
+import { getUnreadEntries } from "../pages/unread-page.data";
 import { FeedIcon } from "./feed-icon";
 import { IconDividerVertical } from "./icons/divider-vertical";
 
-type Falsy<T> = T | null | undefined | false;
+type EntryWithIcon = FeedEntry & { has_icon?: boolean };
 
-export function Entry(props: {
-	title: string;
-	date: Falsy<Date>;
-	url: string;
-	commentsUrl: Falsy<string>;
-	icon?: {
-		feedId?: string;
-		hasIcon?: boolean;
-		fallbackUrl?: string;
-	};
-}) {
-	const iconFallbackUrl = () => props.icon?.fallbackUrl ?? props.url;
+const EntryContext = createContext<Accessor<EntryWithIcon>>();
 
+function useEntry() {
+	const entry = useContext(EntryContext);
+	if (!entry) {
+		throw new Error("Entry sub-components must be used within Entry.Root");
+	}
+	return entry;
+}
+
+type EntryRootProps = {
+	entry: EntryWithIcon;
+	children: JSX.Element;
+};
+
+function EntryRoot(props: EntryRootProps) {
 	return (
-		<li class="group/entry focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative flex flex-col gap-2 p-3 select-none">
-			<a
-				href={props.url}
-				target="_blank"
-				class="focus2 absolute top-0 left-0 h-full w-full"
-			></a>
-
-			<div class="flex gap-3">
-				{props.icon && (
-					<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
-						<FeedIcon
-							class="size-6"
-							feedId={props.icon.feedId}
-							hasIcon={props.icon.hasIcon}
-							fallbackUrl={iconFallbackUrl()}
-						/>
-					</div>
-				)}
-
-				<div class="flex flex-col gap-1">
-					<span class="font-cool inline text-[1.3rem] select-auto group-hover/feed:underline group-has-[a[id=comments]:hover]/feed:no-underline">
-						{props.title}
-					</span>
-
-					<div class="flex items-center gap-1">
-						{props.date && (
-							<p class="text-gray-11 text-sm">{relativeTime(props.date)}</p>
-						)}
-
-						{props.date && props.commentsUrl && <IconDividerVertical />}
-
-						{props.commentsUrl && (
-							<a
-								id="comments"
-								href={props.commentsUrl}
-								target="_blank"
-								class="group/comments text-gray-11 relative -m-4 p-4 text-sm underline outline-none"
-							>
-								<span class="in-focus:outline-gray-a10 group-hover/comments:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
-									comments
-								</span>
-							</a>
-						)}
-					</div>
-				</div>
-			</div>
-		</li>
+		<EntryContext.Provider value={() => props.entry}>
+			<li class="group/entry focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative flex flex-col gap-2 p-3 select-none">
+				<a
+					href={props.entry.url}
+					target="_blank"
+					class="focus2 absolute top-0 left-0 h-full w-full"
+				/>
+				{props.children}
+			</li>
+		</EntryContext.Provider>
 	);
 }
 
-export function EntryDate(props: { date?: string | false | null }) {
-	if (!props.date) return null;
+function EntryIcon() {
+	const entry = useEntry();
+	const hasIcon = () => entry().has_icon;
 
-	const date = new Date(props.date);
-	const dateFormatted = relativeTime(date);
+	return (
+		<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
+			<a href={`/feeds/${entry().feed_id}`} class="relative z-10 -m-4 p-4" id="overlaybutton">
+				<FeedIcon
+					class="size-6"
+					feedId={entry().feed_id}
+					hasIcon={hasIcon()}
+					fallbackUrl={entry().url}
+				/>
+			</a>
+		</div>
+	);
+}
 
-	return <p class="text-gray-11 text-sm">{dateFormatted}</p>;
+function EntryContent(props: ParentProps) {
+	return <div class="flex flex-1 flex-col gap-1">{props.children}</div>;
+}
+
+function EntryTitle() {
+	const entry = useEntry();
+	return (
+		<span class="font-cool inline text-[1.3rem] select-auto group-hover/feed:underline group-has-[[id=overlaybutton]:hover]/feed:no-underline">
+			{entry().title}
+		</span>
+	);
+}
+
+function EntryMeta(props: ParentProps) {
+	return (
+		<div class="flex items-center gap-1">
+			{Array.isArray(props.children)
+				? props.children.map((c, i) => (
+						<>
+							{i != 0 && <EntryDivider />}
+							{c}
+						</>
+					))
+				: props.children}
+		</div>
+	);
+}
+
+function EntryDate() {
+	const entry = useEntry();
+	const date = () => {
+		const dateStr = entry().published_at || entry().entry_updated_at;
+		return dateStr ? new Date(dateStr) : null;
+	};
+
+	const dateValue = date();
+	if (!dateValue) return null;
+
+	return <p class="text-gray-11 text-sm">{relativeTime(dateValue)}</p>;
+}
+
+function EntryDivider() {
+	return <IconDividerVertical />;
+}
+
+function EntryComments() {
+	const entry = useEntry();
+	const commentsUrl = () => entry().comments_url;
+
+	if (!commentsUrl()) return null;
+	return (
+		<a
+			id="overlaybutton"
+			href={commentsUrl()!}
+			target="_blank"
+			class="group/comments text-gray-11 relative -m-4 p-4 text-sm underline outline-none"
+		>
+			<span class="in-focus:outline-gray-a10 group-hover/comments:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
+				comments
+			</span>
+		</a>
+	);
+}
+
+type EntryReadToggleProps = {
+	onReadChange?: (id: string, read: boolean) => void;
+};
+
+function EntryReadToggle(props: EntryReadToggleProps) {
+	const entry = useEntry();
+	const [optimisticRead, setOptimisticRead] = createSignal<boolean | null>(null);
+	const [isUpdating, setIsUpdating] = createSignal(false);
+
+	const isRead = () => {
+		const optimistic = optimisticRead();
+		if (optimistic !== null) return optimistic;
+		return !!entry().read_at;
+	};
+
+	async function handleReadClick(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+
+		if (isUpdating()) return;
+
+		const newReadState = !isRead();
+		const previousOptimistic = optimisticRead();
+
+		setOptimisticRead(newReadState);
+		setIsUpdating(true);
+
+		props.onReadChange?.(entry().id, newReadState);
+
+		try {
+			await api<{ success: boolean }>({
+				method: "POST",
+				path: `/v1/entries/${entry().id}/read`,
+				body: { read: newReadState },
+			});
+			revalidate(getFeedEntries.key);
+			revalidate(queryEntries.key);
+		} catch (error) {
+			setOptimisticRead(previousOptimistic);
+			console.error("Failed to update read status:", error);
+		} finally {
+			setIsUpdating(false);
+		}
+	}
+
+	return (
+		<button
+			id="overlaybutton"
+			onClick={handleReadClick}
+			disabled={isUpdating()}
+			class="group/read text-gray-11 relative -m-4 p-4 text-sm underline"
+		>
+			<span class="in-focus:outline-gray-a10 group-hover/read:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
+				{isRead() ? "mark unread" : "mark read"}
+			</span>
+		</button>
+	);
 }
 
 const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
@@ -87,3 +199,21 @@ function relativeTime(date: Date) {
 
 	return rtf.format(Math.floor(secondsDiff / divisor), unitStrings[unitIndex]);
 }
+
+export function formatDate(dateStr: string | false | null | undefined) {
+	if (!dateStr) return null;
+	const date = new Date(dateStr);
+	return relativeTime(date);
+}
+
+export const Entry = {
+	Root: EntryRoot,
+	Icon: EntryIcon,
+	Content: EntryContent,
+	Title: EntryTitle,
+	Meta: EntryMeta,
+	Date: EntryDate,
+	Divider: EntryDivider,
+	Comments: EntryComments,
+	ReadToggle: EntryReadToggle,
+};

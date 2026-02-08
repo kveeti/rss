@@ -23,6 +23,7 @@ export type FeedEntry = {
 	url: string;
 	feed_id: string;
 	comments_url: string | null;
+	read_at: string | null;
 	published_at: string | null;
 	entry_updated_at: string | null;
 };
