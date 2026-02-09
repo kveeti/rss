@@ -15,7 +15,13 @@ export type FilterParams = {
 	sort?: string;
 };
 
-export const queryEntries = query((params: FilterParams) => {
+export type EntriesResponse = {
+	entries: Array<FeedEntry & { has_icon: boolean }>;
+	next_id: string | null;
+	prev_id: string | null;
+};
+
+export async function fetchEntries(params: FilterParams): Promise<EntriesResponse> {
 	const queryParams: Record<string, string> = {};
 
 	if (params.left) queryParams.left = params.left;
@@ -28,16 +34,14 @@ export const queryEntries = query((params: FilterParams) => {
 	if (params.end) queryParams.end = params.end;
 	if (params.sort) queryParams.sort = params.sort;
 
-	return api<{
-		entries: Array<FeedEntry & { has_icon: boolean }>;
-		next_id: string | null;
-		prev_id: string | null;
-	}>({
+	return api<EntriesResponse>({
 		method: "GET",
 		path: "/v1/entries",
 		query: queryParams,
 	});
-}, "entries");
+}
+
+export const queryEntries = query(fetchEntries, "entries");
 
 export function preloadsEntriesPage(props: { search: string }) {
 	import("./entries-page");

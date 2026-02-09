@@ -5,12 +5,13 @@
 	"type": "module",
 	"scripts": {
 		"start": "vite",
-		"dev": "vite",
+		"dev": "vite --host",
 		"build": "vite build",
-		"preview": "vite preview"
+		"preview": "vite preview --host"
 	},
 	"devDependencies": {
 		"@tailwindcss/postcss": "^4.1.13",
+		"@tanstack/solid-query-devtools": "^5.91.3",
 		"@trivago/prettier-plugin-sort-imports": "^6.0.0",
 		"postcss": "^8.4.49",
 		"prettier": "^3.7.4",
@@ -22,6 +23,7 @@
 	},
 	"dependencies": {
 		"@solidjs/router": "^0.15.1",
+		"@tanstack/solid-query": "^5.90.23",
 		"solid-js": "^1.9.5",
 		"vite-plugin-pwa": "^1.2.0"
 	},

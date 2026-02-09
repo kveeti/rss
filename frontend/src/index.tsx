@@ -1,5 +1,7 @@
 /* @refresh reload */
 import { Navigate, type RouteDefinition, Router } from "@solidjs/router";
+import { QueryClient, QueryClientProvider } from "@tanstack/solid-query";
+import { SolidQueryDevtools } from "@tanstack/solid-query-devtools";
 import "solid-devtools";
 import { Show, Suspense, createSignal, lazy } from "solid-js";
 import { render } from "solid-js/web";
@@ -146,35 +148,41 @@ export const routes: RouteDefinition[] = [
 	},
 ];
 
+const queryClient = new QueryClient();
+
 render(
 	() => (
-		<Router
-			root={(props) => (
-				<>
-					{props.children}
-					<Show when={showUpdatePopup()}>
-						<div class="fixed right-0 bottom-0 z-50 p-4">
-							<div class="bg-gray-2 border-gray-a5 border p-3">
-								<p class="text-gray-12">
-									A new version is available. Click refresh to update
-								</p>
-								<div class="mt-3 flex justify-end gap-2">
-									<Button
-										variant="ghost"
-										onClick={() => setShowUpdatePopup(false)}
-									>
-										Close
-									</Button>
-									<Button onClick={() => updateSW()}>Refresh</Button>
+		<QueryClientProvider client={queryClient}>
+			<SolidQueryDevtools />
+
+			<Router
+				root={(props) => (
+					<>
+						{props.children}
+						<Show when={showUpdatePopup()}>
+							<div class="fixed right-0 bottom-0 z-50 p-4">
+								<div class="bg-gray-2 border-gray-a5 border p-3">
+									<p class="text-gray-12">
+										A new version is available. Click refresh to update
+									</p>
+									<div class="mt-3 flex justify-end gap-2">
+										<Button
+											variant="ghost"
+											onClick={() => setShowUpdatePopup(false)}
+										>
+											Close
+										</Button>
+										<Button onClick={() => updateSW()}>Refresh</Button>
+									</div>
 								</div>
 							</div>
-						</div>
-					</Show>
-				</>
-			)}
-		>
-			{routes}
-		</Router>
+						</Show>
+					</>
+				)}
+			>
+				{routes}
+			</Router>
+		</QueryClientProvider>
 	),
 	root!
 );

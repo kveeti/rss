@@ -1,18 +1,30 @@
-import { queryEntries } from "./entries-page.data";
+import { fetchEntries } from "./entries-page.data";
 
-export function getUnreadEntries(leftId: string | undefined, rightId: string | undefined) {
-	return queryEntries({
+export type UnreadEntriesParams = {
+	leftId: string | undefined;
+	rightId: string | undefined;
+};
+
+export async function fetchUnreadEntries({ leftId, rightId }: UnreadEntriesParams) {
+	return fetchEntries({
 		left: leftId,
 		right: rightId,
 		unread: "true",
 	});
 }
 
+export function unreadEntriesQueryOptions(params: UnreadEntriesParams) {
+	return {
+		queryKey: ["unread-entries", params.leftId, params.rightId],
+		queryFn: () => fetchUnreadEntries(params),
+	};
+}
+
 export function preloadsUnreadPage(props: { search: string }) {
 	import("./unread-page");
 	const newSearchParams = new URLSearchParams(props.search);
-	getUnreadEntries(
-		newSearchParams.get("left") ?? undefined,
-		newSearchParams.get("right") ?? undefined
-	);
+	fetchUnreadEntries({
+		leftId: newSearchParams.get("left") ?? undefined,
+		rightId: newSearchParams.get("right") ?? undefined,
+	});
 }
