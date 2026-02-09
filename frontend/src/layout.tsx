@@ -6,7 +6,7 @@ import { BlazinglyFastLink } from "./components/link";
 export function Page(allProps: { class?: string; children: JSX.Element }) {
 	const [props, rest] = splitProps(allProps, ["class"]);
 
-	let _class = "mt-44 mb-44 sm:mt-14";
+	let _class = "pt-54 pb-34 sm:pt-14";
 	if (props.class) {
 		_class += " " + props.class;
 	}
@@ -18,7 +18,7 @@ export function NavWrap(allProps: { class?: string; children: JSX.Element }) {
 	const [props, rest] = splitProps(allProps, ["class"]);
 
 	let _class =
-		" bg-gray-1 border border-gray-a3 fixed right-0 bottom-0 left-0 z-100  border-t sm:top-0 sm:bottom-[unset] sm:border-t-0 sm:border-b w-full";
+		"bg-gray-1 border-gray-a3 fixed right-0 bottom-0 left-0 z-100 border-t sm:top-0 sm:bottom-[unset] sm:border-t-0 sm:border-b w-full";
 	if (props.class) {
 		_class += " " + props.class;
 	}
@@ -29,7 +29,8 @@ export function NavWrap(allProps: { class?: string; children: JSX.Element }) {
 export function Nav(allProps: { class?: string; children: JSX.Element }) {
 	const [props, rest] = splitProps(allProps, ["class"]);
 
-	let _class = "pwa:pb-12 pwa:px-8 mx-auto flex max-w-160 px-3 w-full";
+	let _class =
+		"pwa:px-8 pwa:pb-16 mx-auto flex max-w-160 sm:px-3 w-full justify-center sm:justify-between";
 	if (props.class) {
 		_class += " " + props.class;
 	}
@@ -65,7 +66,10 @@ function NavLink(props: { children: JSX.Element; href: string }) {
 	return (
 		<BlazinglyFastLink
 			{...props}
-			class={"inline-flex px-3 py-4 sm:py-2" + (match() ? " bg-gray-a3" : "")}
+			class={
+				"sm:text-default inline-flex px-3 py-4 text-xs whitespace-nowrap sm:py-2" +
+				(match() ? " bg-gray-a3" : "")
+			}
 		/>
 	);
 }

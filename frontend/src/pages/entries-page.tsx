@@ -14,7 +14,7 @@ import { Empty } from "../components/empty";
 import { Entry } from "../components/entry";
 import { NavPaginationLinks, Pagination, buildPaginatedHref } from "../components/pagination";
 import { Select } from "../components/select";
-import { DefaultNavLinks, Nav, NavWrap } from "../layout";
+import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { type FilterParams, queryEntries } from "./entries-page.data";
 
 export default function EntriesPage() {
@@ -36,34 +36,34 @@ export default function EntriesPage() {
 		<>
 			<NavWrap>
 				<Nav>
-					<div class="flex w-full justify-between">
-						<DefaultNavLinks />
-						<NavPagination {...filterParams()} />
-					</div>
+					<DefaultNavLinks />
+					<NavPagination {...filterParams()} />
 				</Nav>
 			</NavWrap>
 
-			<main class="mx-auto mt-14 max-w-160 px-3">
-				<FilterBar />
+			<Page>
+				<main class="mx-auto mt-14 max-w-160 px-3">
+					<FilterBar />
 
-				<ErrorBoundary
-					fallback={(_error, _reset) => (
-						<EntriesListError
-							class="mt-4"
-							retry={() => {
-								revalidate(queryEntries.keyFor(filterParams()));
-								// Reset all error boundaries here so that
-								// the one in nav also get reset
-								resetErrorBoundaries();
-							}}
-						/>
-					)}
-				>
-					<Suspense fallback={<Pagination />}>
-						<EntriesList {...filterParams()} />
-					</Suspense>
-				</ErrorBoundary>
-			</main>
+					<ErrorBoundary
+						fallback={(_error, _reset) => (
+							<EntriesListError
+								class="mt-4"
+								retry={() => {
+									revalidate(queryEntries.keyFor(filterParams()));
+									// Reset all error boundaries here so that
+									// the one in nav also get reset
+									resetErrorBoundaries();
+								}}
+							/>
+						)}
+					>
+						<Suspense fallback={<Pagination />}>
+							<EntriesList {...filterParams()} />
+						</Suspense>
+					</ErrorBoundary>
+				</main>
+			</Page>
 		</>
 	);
 }

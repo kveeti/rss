@@ -58,7 +58,7 @@ export function PaginationPrev(props: { class?: string; href?: string }) {
 
 export function NavPaginationLinks(props: { nextHref?: string; prevHref?: string }) {
 	return (
-		<div class="pointer-events-auto invisible -me-5 flex items-center sm:visible">
+		<div class="pointer-events-auto -me-5 hidden items-center sm:flex">
 			<PaginationPrev href={props.prevHref} class="border-none" />
 			<PaginationNext href={props.nextHref} class="border-none" />
 		</div>

@@ -15,10 +15,8 @@ export default function UnreadPage() {
 		<>
 			<NavWrap>
 				<Nav>
-					<div class="flex w-full justify-between">
-						<DefaultNavLinks />
-						<NavPagination />
-					</div>
+					<DefaultNavLinks />
+					<NavPagination />
 				</Nav>
 			</NavWrap>
 
