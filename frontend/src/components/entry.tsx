@@ -3,6 +3,7 @@ import {
 	type Accessor,
 	type JSX,
 	type ParentProps,
+	children,
 	createContext,
 	createSignal,
 	useContext,
@@ -87,16 +88,22 @@ function EntryTitle() {
 }
 
 function EntryMeta(props: ParentProps) {
+	const resolved = children(() => props.children)();
+
 	return (
 		<div class="flex items-center gap-1">
-			{Array.isArray(props.children)
-				? props.children.map((c, i) => (
-						<>
-							{i != 0 && <EntryDivider />}
-							{c}
-						</>
-					))
-				: props.children}
+			{Array.isArray(resolved)
+				? resolved.map((c, i) => {
+						if (!c) return null;
+
+						return (
+							<>
+								{i != 0 && <EntryDivider />}
+								{c}
+							</>
+						);
+					})
+				: resolved}
 		</div>
 	);
 }
