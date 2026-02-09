@@ -10,12 +10,12 @@ import { registerSW } from "virtual:pwa-register";
 import { Button } from "./components/button";
 import { NavPaginationLinks } from "./components/pagination";
 import { DefaultNavLinks, Nav, NavWrap } from "./layout";
-import { preloadsEntriesPage } from "./pages/entries-page.data";
-import { preloadsFeedEditPage } from "./pages/feed-edit-page.data";
-import { preloadsFeedPage } from "./pages/feed-page.data";
-import { preloadsFeedsPage } from "./pages/feeds-page.data";
+import { prefetchEntriesPage } from "./pages/entries-page.data";
+import { prefetchFeedEditPage } from "./pages/feed-edit-page.data";
+import { prefetchFeedPage } from "./pages/feed-page.data";
+import { prefetchFeedsPage } from "./pages/feeds-page.data";
 import { preloadsNewFeedPage } from "./pages/new-feed-page.data";
-import { preloadsUnreadPage } from "./pages/unread-page.data";
+import { prefetchUnreadPage } from "./pages/unread-page.data";
 import "./styles.css";
 
 const root = document.getElementById("root");
@@ -49,7 +49,7 @@ export const routes: RouteDefinition[] = [
 				{lazy(() => import("./pages/feeds-page"))()}
 			</Suspense>
 		),
-		preload: preloadsFeedsPage,
+		preload: () => prefetchFeedsPage(queryClient),
 	},
 	{
 		path: "/feeds/new",
@@ -83,7 +83,7 @@ export const routes: RouteDefinition[] = [
 				{lazy(() => import("./pages/feed-page"))()}
 			</Suspense>
 		),
-		preload: ({ params }) => preloadsFeedPage(params.feedId),
+		preload: ({ params }) => prefetchFeedPage(queryClient, params.feedId),
 	},
 	{
 		path: "/feeds/:feedId/edit",
@@ -100,7 +100,7 @@ export const routes: RouteDefinition[] = [
 				{lazy(() => import("./pages/feed-edit-page"))()}
 			</Suspense>
 		),
-		preload: ({ params }) => preloadsFeedEditPage(params.feedId),
+		preload: ({ params }) => prefetchFeedEditPage(queryClient, params.feedId),
 	},
 	{
 		path: "/unread",
@@ -120,7 +120,7 @@ export const routes: RouteDefinition[] = [
 				{lazy(() => import("./pages/unread-page"))()}
 			</Suspense>
 		),
-		preload: ({ location }) => preloadsUnreadPage({ search: location.search }),
+		preload: ({ location }) => prefetchUnreadPage(queryClient, { search: location.search }),
 	},
 	{
 		path: "/entries",
@@ -140,7 +140,7 @@ export const routes: RouteDefinition[] = [
 				{lazy(() => import("./pages/entries-page"))()}
 			</Suspense>
 		),
-		preload: ({ location }) => preloadsEntriesPage({ search: location.search }),
+		preload: ({ location }) => prefetchEntriesPage(queryClient, { search: location.search }),
 	},
 	{
 		path: "**",

@@ -1,4 +1,4 @@
-import { revalidate } from "@solidjs/router";
+import { createMutation, useQueryClient } from "@tanstack/solid-query";
 import {
 	type Accessor,
 	type JSX,
@@ -9,11 +9,19 @@ import {
 } from "solid-js";
 
 import { api } from "../lib/api";
-import { queryEntries } from "../pages/entries-page.data";
-import { type FeedEntry, getFeedEntries } from "../pages/feed-page.data";
-import { getUnreadEntries } from "../pages/unread-page.data";
 import { FeedIcon } from "./feed-icon";
 import { IconDividerVertical } from "./icons/divider-vertical";
+
+type FeedEntry = {
+	id: string;
+	title: string;
+	url: string;
+	feed_id: string;
+	comments_url: string | null;
+	read_at: string | null;
+	published_at: string | null;
+	entry_updated_at: string | null;
+};
 
 type EntryWithIcon = FeedEntry & { has_icon?: boolean };
 
@@ -137,12 +145,36 @@ function EntryReadToggle(props: EntryReadToggleProps) {
 	const entry = useEntry();
 	const [optimisticRead, setOptimisticRead] = createSignal<boolean | null>(null);
 	const [isUpdating, setIsUpdating] = createSignal(false);
+	const queryClient = useQueryClient();
 
 	const isRead = () => {
 		const optimistic = optimisticRead();
 		if (optimistic !== null) return optimistic;
 		return !!entry().read_at;
 	};
+
+	const toggleReadMutation = createMutation(() => ({
+		mutationFn: async ({ id, read }: { id: string; read: boolean }) => {
+			return api<{ success: boolean }>({
+				method: "POST",
+				path: `/v1/entries/${id}/read`,
+				body: { read },
+			});
+		},
+		onSuccess: (_data, variables) => {
+			queryClient.invalidateQueries({ queryKey: ["entries"] });
+
+			props.onReadChange?.(variables.id, variables.read);
+		},
+		onError: (
+			_error,
+			variables,
+			context: { previousOptimistic: boolean | null } | undefined
+		) => {
+			setOptimisticRead(context?.previousOptimistic ?? null);
+		},
+		mutationKey: ["toggle-read", entry().id],
+	}));
 
 	async function handleReadClick(e: MouseEvent) {
 		e.preventDefault();
@@ -159,17 +191,19 @@ function EntryReadToggle(props: EntryReadToggleProps) {
 		props.onReadChange?.(entry().id, newReadState);
 
 		try {
-			await api<{ success: boolean }>({
-				method: "POST",
-				path: `/v1/entries/${entry().id}/read`,
-				body: { read: newReadState },
-			});
-			revalidate(getFeedEntries.key);
-			revalidate(queryEntries.key);
+			toggleReadMutation.mutate(
+				{ id: entry().id, read: newReadState },
+				{
+					onSettled: () => {
+						setIsUpdating(false);
+					},
+					// @ts-expect-error - context typing issue
+					context: { previousOptimistic },
+				}
+			);
 		} catch (error) {
 			setOptimisticRead(previousOptimistic);
 			console.error("Failed to update read status:", error);
-		} finally {
 			setIsUpdating(false);
 		}
 	}

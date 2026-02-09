@@ -1,6 +1,6 @@
-import { getFeed } from "./feed-page.data";
+import { feedQueryOptions } from "./feed-page.data";
 
-export function preloadsFeedEditPage(feedId: string) {
+export async function prefetchFeedEditPage(queryClient: any, feedId: string) {
+	await queryClient.prefetchQuery(feedQueryOptions(feedId));
 	import("./feed-edit-page");
-	getFeed(feedId);
 }

@@ -1,5 +1,6 @@
-import { createAsync, revalidate, useParams, useSearchParams } from "@solidjs/router";
-import { ErrorBoundary, For, Show, Suspense } from "solid-js";
+import { useParams, useSearchParams } from "@solidjs/router";
+import { createQuery } from "@tanstack/solid-query";
+import { For, Match, Show, Switch } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
 import { Entry } from "../components/entry";
@@ -7,7 +8,7 @@ import { FeedIcon } from "../components/feed-icon";
 import { IconSettings } from "../components/icons/settings";
 import { Pagination } from "../components/pagination";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
-import { getFeed, getFeedEntries } from "./feed-page.data";
+import { feedEntriesQueryOptions, feedQueryOptions } from "./feed-page.data";
 
 // TODO:
 // - pagination button positioning, maybe theres a way to
@@ -32,22 +33,7 @@ export default function FeedPage() {
 
 			<Page>
 				<main class="mx-auto max-w-160 px-3">
-					<ErrorBoundary
-						fallback={(_error, reset) => (
-							<FeedDetailsError
-								class="mt-4"
-								retry={() => {
-									revalidate(getFeed.keyFor(feedId));
-									reset();
-								}}
-							/>
-						)}
-					>
-						<Suspense fallback={<FeedDetailsSkeleton />}>
-							<FeedDetails feedId={feedId} />
-						</Suspense>
-					</ErrorBoundary>
-
+					<FeedDetails feedId={feedId} />
 					<FeedEntries feedId={feedId} />
 				</main>
 			</Page>
@@ -56,35 +42,50 @@ export default function FeedPage() {
 }
 
 function FeedDetails(props: { feedId: string }) {
-	const feed = createAsync(() => getFeed(props.feedId));
+	const query = createQuery(() => feedQueryOptions(props.feedId));
 
 	return (
-		<Show when={feed()} keyed>
-			{(feed) => (
-				<div class="mx-auto my-4 flex w-full justify-between gap-6">
-					<div class="font-cool relative text-xl">
-						<FeedIcon
-							class="me-2.5 inline size-5.5 align-text-bottom"
-							feedId={feed.id}
-							hasIcon={feed.has_icon}
-							fallbackUrl={feed.feed_url}
-						/>
-						<h1 class="inline font-medium">{feed.title}</h1>
+		<Switch>
+			<Match when={query.isError}>
+				<FeedDetailsError
+					class="mt-4"
+					retry={() => {
+						query.refetch();
+					}}
+				/>
+			</Match>
 
-						<a href={feed.site_url ?? feed.feed_url} class="absolute inset-0">
-							<span class="sr-only">{feed.title}</span>
+			<Match when={query.isLoading}>
+				<FeedDetailsSkeleton />
+			</Match>
+
+			<Match when={query.data} keyed>
+				{(feed) => (
+					<div class="mx-auto my-4 flex w-full justify-between gap-6">
+						<div class="font-cool relative text-xl">
+							<FeedIcon
+								class="me-2.5 inline size-5.5 align-text-bottom"
+								feedId={feed.id}
+								hasIcon={feed.has_icon}
+								fallbackUrl={feed.feed_url}
+							/>
+							<h1 class="inline font-medium">{feed.title}</h1>
+
+							<a href={feed.site_url ?? feed.feed_url} class="absolute inset-0">
+								<span class="sr-only">{feed.title}</span>
+							</a>
+						</div>
+
+						<a
+							href={`/feeds/${props.feedId}/edit`}
+							class={buttonStyles({ variant: "ghost", size: "withIcon" }) + " gap-3"}
+						>
+							<IconSettings /> <span>Edit</span>
 						</a>
 					</div>
-
-					<a
-						href={`/feeds/${props.feedId}/edit`}
-						class={buttonStyles({ variant: "ghost", size: "withIcon" }) + " gap-3"}
-					>
-						<IconSettings /> <span>Edit</span>
-					</a>
-				</div>
-			)}
-		</Show>
+				)}
+			</Match>
+		</Switch>
 	);
 }
 
@@ -113,75 +114,80 @@ function FeedEntries(props: { feedId: string }) {
 	const [searchParams] = useSearchParams();
 
 	return (
-		<ErrorBoundary
-			fallback={(_error, reset) => (
-				<FeedEntriesError
-					class="mt-8"
-					retry={() => {
-						reset();
-						revalidate(
-							getFeedEntries.keyFor({
-								feedId: props.feedId,
-								limit: searchParams.limit as string | undefined,
-								left: searchParams.left as string | undefined,
-								right: searchParams.right as string | undefined,
-							})
-						);
-					}}
-				/>
-			)}
-		>
-			<Suspense fallback={<FeedEntriesSkeleton />}>
-				<FeedEntriesList
-					feedId={props.feedId}
-					limit={searchParams.limit as string | undefined}
-					left={searchParams.left as string | undefined}
-					right={searchParams.right as string | undefined}
-				/>
-			</Suspense>
-		</ErrorBoundary>
+		<FeedEntriesList
+			feedId={props.feedId}
+			limit={searchParams.limit as string | undefined}
+			left={searchParams.left as string | undefined}
+			right={searchParams.right as string | undefined}
+		/>
 	);
 }
 
 function FeedEntriesList(props: { feedId: string; left?: string; right?: string; limit?: string }) {
-	const entries = createAsync(() => getFeedEntries(props));
+	const query = createQuery(() =>
+		feedEntriesQueryOptions({
+			feedId: props.feedId,
+			limit: props.limit,
+			left: props.left,
+			right: props.right,
+		})
+	);
 
 	const prevHref = () =>
-		entries()?.prev_id ? `/feeds/${props.feedId}?left=${entries()?.prev_id}` : undefined;
+		query.data?.prev_id ? `/feeds/${props.feedId}?left=${query.data.prev_id}` : undefined;
 
 	const nextHref = () =>
-		entries()?.next_id ? `/feeds/${props.feedId}?right=${entries()?.next_id}` : undefined;
+		query.data?.next_id ? `/feeds/${props.feedId}?right=${query.data.next_id}` : undefined;
 
 	return (
-		<>
-			<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
-				<For each={entries()?.entries}>
-					{(entry) => {
-						const dateStr = entry.published_at || entry.entry_updated_at;
-						const date = dateStr ? new Date(dateStr) : undefined;
-
-						return (
-							<Entry.Root entry={entry}>
-								<Entry.Content>
-									<Entry.Title />
-									<Entry.Meta>
-										<Entry.Date />
-										<Entry.Comments />
-										<Entry.ReadToggle />
-									</Entry.Meta>
-								</Entry.Content>
-							</Entry.Root>
-						);
+		<Switch>
+			<Match when={query.isError}>
+				<FeedEntriesError
+					class="mt-8"
+					retry={() => {
+						query.refetch();
 					}}
-				</For>
-			</ul>
+				/>
+			</Match>
 
-			<div class="pwa:bottom-28 fixed right-0 bottom-14 left-0 sm:bottom-0">
-				<div class="pointer-events-none mx-auto flex max-w-160 justify-end">
-					<Pagination prevHref={prevHref()} nextHref={nextHref()} />
-				</div>
-			</div>
-		</>
+			<Match when={query.isLoading}>
+				<FeedEntriesSkeleton />
+			</Match>
+
+			<Match when={query.data} keyed>
+				{(data) => (
+					<>
+						<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
+							<For each={data.entries}>
+								{(entry) => {
+									const dateStr = entry.published_at || entry.entry_updated_at;
+									const date = dateStr ? new Date(dateStr) : undefined;
+
+									return (
+										<Entry.Root entry={entry}>
+											<Entry.Content>
+												<Entry.Title />
+												<Entry.Meta>
+													<Entry.Date />
+													<Entry.Comments />
+													<Entry.ReadToggle />
+												</Entry.Meta>
+											</Entry.Content>
+										</Entry.Root>
+									);
+								}}
+							</For>
+						</ul>
+
+						<div class="pwa:bottom-28 fixed right-0 bottom-14 left-0 sm:bottom-0">
+							<div class="pointer-events-none mx-auto flex max-w-160 justify-end">
+								<Pagination prevHref={prevHref()} nextHref={nextHref()} />
+							</div>
+						</div>
+					</>
+				)}
+			</Match>
+		</Switch>
 	);
 }
 

@@ -15,16 +15,18 @@ export async function fetchUnreadEntries({ leftId, rightId }: UnreadEntriesParam
 
 export function unreadEntriesQueryOptions(params: UnreadEntriesParams) {
 	return {
-		queryKey: ["unread-entries", params.leftId, params.rightId],
+		queryKey: ["entries", "unread", params.leftId, params.rightId],
 		queryFn: () => fetchUnreadEntries(params),
 	};
 }
 
-export function preloadsUnreadPage(props: { search: string }) {
+export async function prefetchUnreadPage(queryClient: any, props: { search: string }) {
+	const searchParams = new URLSearchParams(props.search);
+	const params: UnreadEntriesParams = {
+		leftId: searchParams.get("left") ?? undefined,
+		rightId: searchParams.get("right") ?? undefined,
+	};
+
+	await queryClient.prefetchQuery(unreadEntriesQueryOptions(params));
 	import("./unread-page");
-	const newSearchParams = new URLSearchParams(props.search);
-	fetchUnreadEntries({
-		leftId: newSearchParams.get("left") ?? undefined,
-		rightId: newSearchParams.get("right") ?? undefined,
-	});
 }

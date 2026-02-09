@@ -1,4 +1,5 @@
 import { useNavigate } from "@solidjs/router";
+import { createMutation, useQueryClient } from "@tanstack/solid-query";
 import { For, Ref, Show, createSignal } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
@@ -7,6 +8,7 @@ import { Input } from "../components/input";
 import { OpmlImportSection } from "../components/opml-import";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { api } from "../lib/api";
+import { feedsQueryOptions } from "./feeds-page.data";
 
 type States =
 	| {
@@ -41,9 +43,61 @@ type States =
 export default function NewFeedPage() {
 	let inputRef: Ref<HTMLInputElement>;
 	let formRef: Ref<HTMLFormElement>;
+	const queryClient = useQueryClient();
 
 	const [state, setState] = createSignal<States>({ phase: "init", loading: false });
 	const navigate = useNavigate();
+
+	const addFeedMutation = createMutation(() => ({
+		mutationFn: async ({
+			url,
+			force_similar_feed,
+		}: {
+			url: string;
+			force_similar_feed?: boolean;
+		}) => {
+			return api<
+				| { status: "feed_added" }
+				| { status: "discovered_multiple"; feed_urls: string[]; similar_feed_url?: string }
+				| { status: "duplicate_feed" }
+				| { status: "similar_feed"; similar_feed_url: string }
+			>({
+				path:
+					"/v1/feeds?url=" +
+					encodeURIComponent(url) +
+					"&force_similar_feed=" +
+					(force_similar_feed ?? "false"),
+				method: "POST",
+			});
+		},
+		onSuccess: (res) => {
+			if (res.status === "feed_added") {
+				queryClient.invalidateQueries({ queryKey: ["feeds"] });
+				navigate("/feeds");
+			} else if (res.status === "discovered_multiple") {
+				setState({
+					phase: "discovered_multiple",
+					status: "idle",
+					feed_urls: res.feed_urls,
+					similar_feed_url: res.similar_feed_url,
+					loading: false,
+				});
+			} else if (res.status === "similar_feed") {
+				setState({
+					phase: "only_one_similar_feed",
+					similar_feed_url: res.similar_feed_url,
+					loading: false,
+				});
+			}
+		},
+		onError: (error: Error) => {
+			setState({
+				phase: "init",
+				loading: false,
+				error: error.message,
+			});
+		},
+	}));
 
 	async function onSubmit(event: SubmitEvent) {
 		event.preventDefault();
@@ -61,37 +115,7 @@ export default function NewFeedPage() {
 			loading: true,
 		});
 
-		const res = await api<
-			| { status: "feed_added" }
-			| { status: "discovered_multiple"; feed_urls: string[]; similar_feed_url?: string }
-			| { status: "duplicate_feed" }
-			| { status: "similar_feed"; similar_feed_url: string }
-		>({
-			path:
-				"/v1/feeds?url=" +
-				encodeURIComponent(url) +
-				"&force_similar_feed=" +
-				(force_similar_feed ?? "false"),
-			method: "POST",
-		});
-
-		if (res.status === "feed_added") {
-			navigate("/feeds");
-		} else if (res.status === "discovered_multiple") {
-			setState({
-				phase: "discovered_multiple",
-				status: "idle",
-				feed_urls: res.feed_urls,
-				similar_feed_url: res.similar_feed_url,
-				loading: false,
-			});
-		} else if (res.status === "similar_feed") {
-			setState({
-				phase: "only_one_similar_feed",
-				similar_feed_url: res.similar_feed_url,
-				loading: false,
-			});
-		}
+		addFeedMutation.mutate({ url, force_similar_feed });
 	}
 
 	return (

@@ -1,12 +1,5 @@
-import { createAsync, revalidate } from "@solidjs/router";
-import {
-	ErrorBoundary,
-	Suspense,
-	createEffect,
-	createSignal,
-	onCleanup,
-	resetErrorBoundaries,
-} from "solid-js";
+import { createQuery } from "@tanstack/solid-query";
+import { For, Match, Switch, createEffect, createSignal, onCleanup } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
 import { Empty } from "../components/empty";
@@ -14,7 +7,7 @@ import { FeedIcon } from "../components/feed-icon";
 import { IconPlus } from "../components/icons/plus";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { prettifyUrl } from "../lib/urls";
-import { getFeeds } from "./feeds-page.data";
+import { feedsQueryOptions } from "./feeds-page.data";
 
 export default function FeedsPage() {
 	return (
@@ -49,21 +42,78 @@ export default function FeedsPage() {
 }
 
 function Feeds() {
+	const query = createQuery(() => feedsQueryOptions());
+
 	return (
-		<ErrorBoundary
-			fallback={
+		<Switch>
+			<Match when={query.isError}>
 				<FeedsListError
 					retry={() => {
-						revalidate(getFeeds.key);
-						resetErrorBoundaries();
+						query.refetch();
 					}}
 				/>
-			}
-		>
-			<Suspense fallback={<FeedsListSkeleton />}>
-				<FeedsList />
-			</Suspense>
-		</ErrorBoundary>
+			</Match>
+
+			<Match when={query.isLoading}>
+				<FeedsListSkeleton />
+			</Match>
+
+			<Match when={!query.data?.length}>
+				<Empty>No feeds yet</Empty>
+			</Match>
+
+			<Match when={query.data?.length}>
+				<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
+					<For each={query.data}>
+						{(feed) => {
+							const siteUrl = feed.site_url ?? feed.feed_url;
+
+							return (
+								<li class="focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative flex flex-col gap-2 p-3">
+									<a
+										href={`/feeds/${feed.id}`}
+										class="focus absolute top-0 left-0 h-full w-full"
+									></a>
+									<div class="flex gap-3">
+										<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
+											<FeedIcon
+												feedId={feed.id}
+												hasIcon={feed.has_icon}
+												fallbackUrl={feed.feed_url}
+												class="size-6"
+											/>
+										</div>
+
+										<div class="flex flex-col gap-3 font-medium">
+											<div class="flex flex-col gap-1">
+												<span class="font-cool inline text-[1.3rem] group-hover/feed:underline group-has-[a[id=site]:hover]/feed:no-underline">
+													{feed.title}
+												</span>
+
+												<a
+													id="site"
+													href={siteUrl}
+													class="group/link text-gray-11 relative z-10 -m-4 max-w-max p-4 text-xs outline-none"
+												>
+													<span class="in-focus:outline-gray-a10 underline group-hover/link:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
+														{prettifyUrl(siteUrl)}
+													</span>
+												</a>
+											</div>
+
+											<p class="text-gray-11 text-sm">
+												{feed.entry_count} entries (
+												{feed.unread_entry_count} unread)
+											</p>
+										</div>
+									</div>
+								</li>
+							);
+						}}
+					</For>
+				</ul>
+			</Match>
+		</Switch>
 	);
 }
 
@@ -125,66 +175,6 @@ function FeedsListSkeleton() {
 					</li>
 				))}
 			</ul>
-		</>
-	);
-}
-
-function FeedsList() {
-	const feeds = createAsync(() => getFeeds());
-
-	return (
-		<>
-			{!feeds()?.length ? (
-				<Empty>No feeds yet</Empty>
-			) : (
-				<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
-					{feeds()?.map((feed) => {
-						const siteUrl = feed.site_url ?? feed.feed_url;
-
-						return (
-							<li class="focus:bg-gray-a2 hover:bg-gray-a2 group/feed relative flex flex-col gap-2 p-3">
-								<a
-									href={`/feeds/${feed.id}`}
-									class="focus absolute top-0 left-0 h-full w-full"
-								></a>
-								<div class="flex gap-3">
-									<div class="font-cool flex h-[1lh] flex-shrink-0 items-center justify-center text-[1.3rem]">
-										<FeedIcon
-											feedId={feed.id}
-											hasIcon={feed.has_icon}
-											fallbackUrl={feed.feed_url}
-											class="size-6"
-										/>
-									</div>
-
-									<div class="flex flex-col gap-3 font-medium">
-										<div class="flex flex-col gap-1">
-											<span class="font-cool inline text-[1.3rem] group-hover/feed:underline group-has-[a[id=site]:hover]/feed:no-underline">
-												{feed.title}
-											</span>
-
-											<a
-												id="site"
-												href={siteUrl}
-												class="group/link text-gray-11 relative z-10 -m-4 max-w-max p-4 text-xs outline-none"
-											>
-												<span class="in-focus:outline-gray-a10 underline group-hover/link:text-white in-focus:outline-2 in-focus:outline-offset-2 in-focus:outline-none in-focus:outline-solid">
-													{prettifyUrl(siteUrl)}
-												</span>
-											</a>
-										</div>
-
-										<p class="text-gray-11 text-sm">
-											{feed.entry_count} entries ({feed.unread_entry_count}{" "}
-											unread)
-										</p>
-									</div>
-								</div>
-							</li>
-						);
-					})}
-				</ul>
-			)}
 		</>
 	);
 }

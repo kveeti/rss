@@ -1,5 +1,3 @@
-import { query } from "@solidjs/router";
-
 import { api } from "../lib/api";
 import { type FeedEntry } from "./feed-page.data";
 
@@ -41,12 +39,27 @@ export async function fetchEntries(params: FilterParams): Promise<EntriesRespons
 	});
 }
 
-export const queryEntries = query(fetchEntries, "entries");
+export function entriesQueryOptions(params: FilterParams) {
+	return {
+		queryKey: [
+			"entries",
+			params.left,
+			params.right,
+			params.query,
+			params.feed_id,
+			params.unread,
+			params.starred,
+			params.start,
+			params.end,
+			params.sort,
+		],
+		queryFn: () => fetchEntries(params),
+	};
+}
 
-export function preloadsEntriesPage(props: { search: string }) {
-	import("./entries-page");
+export async function prefetchEntriesPage(queryClient: any, props: { search: string }) {
 	const searchParams = new URLSearchParams(props.search);
-	queryEntries({
+	const params: FilterParams = {
 		feed_id: searchParams.get("feed_id") ?? undefined,
 		query: searchParams.get("query") ?? undefined,
 		left: searchParams.get("left") ?? undefined,
@@ -56,5 +69,8 @@ export function preloadsEntriesPage(props: { search: string }) {
 		start: searchParams.get("start") ?? undefined,
 		end: searchParams.get("end") ?? undefined,
 		sort: searchParams.get("sort") ?? undefined,
-	});
+	};
+
+	await queryClient.prefetchQuery(entriesQueryOptions(params));
+	import("./entries-page");
 }

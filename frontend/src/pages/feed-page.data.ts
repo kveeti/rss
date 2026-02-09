@@ -1,5 +1,3 @@
-import { query } from "@solidjs/router";
-
 import { api } from "../lib/api";
 
 export type FeedWithEntryCounts = {
@@ -28,51 +26,59 @@ export type FeedEntry = {
 	entry_updated_at: string | null;
 };
 
-export const getFeed = query((feedId: string) => {
-	return api<FeedWithEntryCounts>({
-		path: `/v1/feeds/${feedId}`,
-		method: "GET",
-	});
-}, "feed");
+export function feedQueryOptions(feedId: string) {
+	return {
+		queryKey: ["entries", "feed", feedId],
+		queryFn: async () => {
+			return api<FeedWithEntryCounts>({
+				path: `/v1/feeds/${feedId}`,
+				method: "GET",
+			});
+		},
+	};
+}
 
-export const getFeedEntries = query(
-	({
-		feedId,
-		limit,
-		left,
-		right,
-	}: {
-		feedId: string;
-		limit?: string;
-		left?: string;
-		right?: string;
-	}) => {
-		const query: Record<string, string> = {};
+export function feedEntriesQueryOptions({
+	feedId,
+	limit,
+	left,
+	right,
+}: {
+	feedId: string;
+	limit?: string;
+	left?: string;
+	right?: string;
+}) {
+	const query: Record<string, string> = {};
 
-		if (limit) {
-			query.limit = limit;
-		}
-		if (left) {
-			query.left = left;
-		}
-		if (right) {
-			query.right = right;
-		}
+	if (limit) {
+		query.limit = limit;
+	}
+	if (left) {
+		query.left = left;
+	}
+	if (right) {
+		query.right = right;
+	}
 
-		return api<{
-			entries: Array<FeedEntry>;
-			next_id: string;
-			prev_id: string;
-		}>({
-			path: `/v1/feeds/${feedId}/entries`,
-			query,
-			method: "GET",
-		});
-	},
-	"feedEntries"
-);
+	return {
+		queryKey: ["feed-entries", feedId, limit, left, right],
+		queryFn: async () => {
+			return api<{
+				entries: Array<FeedEntry>;
+				next_id: string;
+				prev_id: string;
+			}>({
+				path: `/v1/feeds/${feedId}/entries`,
+				query,
+				method: "GET",
+			});
+		},
+	};
+}
 
-export function preloadsFeedPage(feedId: string) {
-	getFeed(feedId);
-	getFeedEntries({ feedId });
+export async function prefetchFeedPage(queryClient: any, feedId: string) {
+	await queryClient.prefetchQuery(feedQueryOptions(feedId));
+	await queryClient.prefetchQuery(feedEntriesQueryOptions({ feedId }));
+	import("./feed-page");
 }

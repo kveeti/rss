@@ -1,13 +1,6 @@
-import { createAsync, revalidate, useSearchParams } from "@solidjs/router";
-import {
-	ErrorBoundary,
-	For,
-	JSX,
-	Show,
-	Suspense,
-	createSignal,
-	resetErrorBoundaries,
-} from "solid-js";
+import { useSearchParams } from "@solidjs/router";
+import { createQuery } from "@tanstack/solid-query";
+import { For, JSX, Match, Show, Switch, createSignal } from "solid-js";
 
 import { Button } from "../components/button";
 import { Empty } from "../components/empty";
@@ -15,7 +8,7 @@ import { Entry } from "../components/entry";
 import { NavPaginationLinks, Pagination, buildPaginatedHref } from "../components/pagination";
 import { Select } from "../components/select";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
-import { type FilterParams, queryEntries } from "./entries-page.data";
+import { type FilterParams, entriesQueryOptions } from "./entries-page.data";
 
 export default function EntriesPage() {
 	const [searchParams] = useSearchParams();
@@ -45,59 +38,28 @@ export default function EntriesPage() {
 				<main class="mx-auto mt-14 max-w-160 px-3">
 					<FilterBar />
 
-					<ErrorBoundary
-						fallback={(_error, _reset) => (
-							<EntriesListError
-								class="mt-4"
-								retry={() => {
-									revalidate(queryEntries.keyFor(filterParams()));
-									// Reset all error boundaries here so that
-									// the one in nav also get reset
-									resetErrorBoundaries();
-								}}
-							/>
-						)}
-					>
-						<Suspense fallback={<Pagination />}>
-							<EntriesList {...filterParams()} />
-						</Suspense>
-					</ErrorBoundary>
+					<EntriesList {...filterParams()} />
 				</main>
 			</Page>
 		</>
 	);
 }
 
-function EntriesListError(props: { class?: string; retry: () => void }) {
-	return (
-		<div class={"space-y-4" + (props.class ? ` ${props.class}` : "")}>
-			<p class="bg-red-a4 p-4">Error loading feed details</p>
-
-			<Button onClick={props.retry}>Retry</Button>
-		</div>
-	);
-}
-
 function NavPagination(props: FilterParams) {
+	const query = createQuery(() => entriesQueryOptions(props));
+
 	return (
-		<ErrorBoundary fallback={<NavPaginationLinks />}>
-			<Suspense fallback={<NavPaginationLinks />}>
-				<NavPaginationInner {...props} />
-			</Suspense>
-		</ErrorBoundary>
+		<Show when={query.data} fallback={<NavPaginationLinks />}>
+			{(data) => {
+				const [searchParams] = useSearchParams();
+				const nextHref = () =>
+					buildPaginatedHref("right", data().next_id, "/entries", searchParams);
+				const prevHref = () =>
+					buildPaginatedHref("left", data().prev_id, "/entries", searchParams);
+				return <NavPaginationLinks nextHref={nextHref()} prevHref={prevHref()} />;
+			}}
+		</Show>
 	);
-}
-
-function NavPaginationInner(props: FilterParams) {
-	const entriesCursor = createAsync(() => queryEntries(props));
-	const [searchParams] = useSearchParams();
-
-	const nextHref = () =>
-		buildPaginatedHref("right", entriesCursor()?.next_id, "/entries", searchParams);
-	const prevHref = () =>
-		buildPaginatedHref("left", entriesCursor()?.prev_id, "/entries", searchParams);
-
-	return <NavPaginationLinks nextHref={nextHref()} prevHref={prevHref()} />;
 }
 
 function FilterBar() {
@@ -266,47 +228,74 @@ function FilterChip(props: { active: boolean; onClick: () => void; children: JSX
 }
 
 function EntriesList(props: FilterParams) {
-	const entriesCursor = createAsync(() => queryEntries(props));
+	const query = createQuery(() => entriesQueryOptions(props));
 	const [searchParams] = useSearchParams();
 
 	const nextHref = () =>
-		buildPaginatedHref("right", entriesCursor()?.next_id, "/entries", searchParams);
+		buildPaginatedHref("right", query.data?.next_id, "/entries", searchParams);
 	const prevHref = () =>
-		buildPaginatedHref("left", entriesCursor()?.prev_id, "/entries", searchParams);
+		buildPaginatedHref("left", query.data?.prev_id, "/entries", searchParams);
 
 	return (
-		<>
-			{!entriesCursor()?.entries.length ? (
-				<Empty>No matches</Empty>
-			) : (
-				<div>
-					<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
-						<For each={entriesCursor()?.entries}>
-							{(entry) => (
-								<Entry.Root entry={entry}>
-									<div class="flex gap-3">
-										<Entry.Icon />
-										<Entry.Content>
-											<Entry.Title />
-											<Entry.Meta>
-												<Entry.Date />
-												<Entry.Comments />
-												<Entry.ReadToggle />
-											</Entry.Meta>
-										</Entry.Content>
-									</div>
-								</Entry.Root>
-							)}
-						</For>
-					</ul>
+		<Switch>
+			<Match when={query.isError}>
+				<EntriesListError
+					class="mt-4"
+					retry={() => {
+						query.refetch();
+					}}
+				/>
+			</Match>
 
-					<div class="pwa:bottom-28 pointer-events-none fixed right-0 bottom-13 left-0 sm:bottom-0">
-						<div class="mx-auto flex max-w-160 justify-end">
-							<Pagination prevHref={prevHref()} nextHref={nextHref()} />
+			<Match when={query.isLoading}>
+				<Pagination />
+			</Match>
+
+			<Match when={!query.data?.entries.length}>
+				<Empty>No matches</Empty>
+			</Match>
+
+			<Match when={query.data} keyed>
+				{(data) => (
+					<div>
+						<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
+							<For each={data.entries}>
+								{(entry) => (
+									<Entry.Root entry={entry}>
+										<div class="flex gap-3">
+											<Entry.Icon />
+											<Entry.Content>
+												<Entry.Title />
+												<Entry.Meta>
+													<Entry.Date />
+													<Entry.Comments />
+													<Entry.ReadToggle />
+												</Entry.Meta>
+											</Entry.Content>
+										</div>
+									</Entry.Root>
+								)}
+							</For>
+						</ul>
+
+						<div class="pwa:bottom-28 pointer-events-none fixed right-0 bottom-13 left-0 sm:bottom-0">
+							<div class="mx-auto flex max-w-160 justify-end">
+								<Pagination prevHref={prevHref()} nextHref={nextHref()} />
+							</div>
 						</div>
 					</div>
-				</div>
-			)}
-		</>
+				)}
+			</Match>
+		</Switch>
+	);
+}
+
+function EntriesListError(props: { class?: string; retry: () => void }) {
+	return (
+		<div class={"space-y-4" + (props.class ? ` ${props.class}` : "")}>
+			<p class="bg-red-a4 p-4">Error loading entries</p>
+
+			<Button onClick={props.retry}>Retry</Button>
+		</div>
 	);
 }
