@@ -255,36 +255,32 @@ function EntriesList(props: FilterParams) {
 				<Empty>No matches</Empty>
 			</Match>
 
-			<Match when={query.data} keyed>
-				{(data) => (
-					<div>
-						<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
-							<For each={data.entries}>
-								{(entry) => (
-									<Entry.Root entry={entry}>
-										<div class="flex gap-3">
-											<Entry.Icon />
-											<Entry.Content>
-												<Entry.Title />
-												<Entry.Meta>
-													<Entry.Date />
-													<Entry.Comments />
-													<Entry.ReadToggle />
-												</Entry.Meta>
-											</Entry.Content>
-										</div>
-									</Entry.Root>
-								)}
-							</For>
-						</ul>
+			<Match when={query.data?.entries.length}>
+				<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
+					<For each={query.data?.entries}>
+						{(entry) => (
+							<Entry.Root entry={entry}>
+								<div class="flex gap-3">
+									<Entry.Icon />
+									<Entry.Content>
+										<Entry.Title />
+										<Entry.Meta>
+											<Entry.Date />
+											<Entry.Comments />
+											<Entry.ReadToggle />
+										</Entry.Meta>
+									</Entry.Content>
+								</div>
+							</Entry.Root>
+						)}
+					</For>
+				</ul>
 
-						<div class="pwa:bottom-28 pointer-events-none fixed right-0 bottom-13 left-0 sm:bottom-0">
-							<div class="mx-auto flex max-w-160 justify-end">
-								<Pagination prevHref={prevHref()} nextHref={nextHref()} />
-							</div>
-						</div>
+				<div class="pwa:bottom-28 pointer-events-none fixed right-0 bottom-13 left-0 sm:bottom-0">
+					<div class="mx-auto flex max-w-160 justify-end">
+						<Pagination prevHref={prevHref()} nextHref={nextHref()} />
 					</div>
-				)}
+				</div>
 			</Match>
 		</Switch>
 	);

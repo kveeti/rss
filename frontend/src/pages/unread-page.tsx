@@ -88,7 +88,11 @@ function EntriesList() {
 				<EntriesSkeleton />
 			</Match>
 
-			<Match when={query.data?.entries.length} fallback={<Empty>No unread entries</Empty>}>
+			<Match when={!query.data?.entries.length}>
+				<Empty>No unread entries</Empty>
+			</Match>
+
+			<Match when={query.data?.entries.length}>
 				<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
 					<For each={query.data?.entries}>
 						{(entry) => (

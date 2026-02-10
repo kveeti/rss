@@ -1,8 +1,9 @@
 import { useParams, useSearchParams } from "@solidjs/router";
 import { createQuery } from "@tanstack/solid-query";
-import { For, Match, Show, Switch } from "solid-js";
+import { For, Match, Switch } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
+import { Empty } from "../components/empty";
 import { Entry } from "../components/entry";
 import { FeedIcon } from "../components/feed-icon";
 import { IconSettings } from "../components/icons/settings";
@@ -154,38 +155,33 @@ function FeedEntriesList(props: { feedId: string; left?: string; right?: string;
 				<FeedEntriesSkeleton />
 			</Match>
 
-			<Match when={query.data} keyed>
-				{(data) => (
-					<>
-						<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
-							<For each={data.entries}>
-								{(entry) => {
-									const dateStr = entry.published_at || entry.entry_updated_at;
-									const date = dateStr ? new Date(dateStr) : undefined;
+			<Match when={!query.data?.entries.length}>
+				<Empty>No entries</Empty>
+			</Match>
 
-									return (
-										<Entry.Root entry={entry}>
-											<Entry.Content>
-												<Entry.Title />
-												<Entry.Meta>
-													<Entry.Date />
-													<Entry.Comments />
-													<Entry.ReadToggle />
-												</Entry.Meta>
-											</Entry.Content>
-										</Entry.Root>
-									);
-								}}
-							</For>
-						</ul>
+			<Match when={query.data?.entries.length}>
+				<ul class="divide-gray-a3 -mx-3 mb-40 divide-y">
+					<For each={query.data?.entries}>
+						{(entry) => (
+							<Entry.Root entry={entry}>
+								<Entry.Content>
+									<Entry.Title />
+									<Entry.Meta>
+										<Entry.Date />
+										<Entry.Comments />
+										<Entry.ReadToggle />
+									</Entry.Meta>
+								</Entry.Content>
+							</Entry.Root>
+						)}
+					</For>
+				</ul>
 
-						<div class="pwa:bottom-28 fixed right-0 bottom-14 left-0 sm:bottom-0">
-							<div class="pointer-events-none mx-auto flex max-w-160 justify-end">
-								<Pagination prevHref={prevHref()} nextHref={nextHref()} />
-							</div>
-						</div>
-					</>
-				)}
+				<div class="pwa:bottom-28 fixed right-0 bottom-14 left-0 sm:bottom-0">
+					<div class="pointer-events-none mx-auto flex max-w-160 justify-end">
+						<Pagination prevHref={prevHref()} nextHref={nextHref()} />
+					</div>
+				</div>
 			</Match>
 		</Switch>
 	);
