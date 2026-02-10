@@ -210,3 +210,13 @@ jobs:
             $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
             ${{ env.DOCKERHUB_IMAGE }}@${{ needs.amd64_build_and_push_docker_image.outputs.digest }} \
             ${{ env.DOCKERHUB_IMAGE }}@${{ needs.arm64_build_and_push_docker_image.outputs.digest }}
+
+      - name: "output: image tags"
+        run: |
+          {
+            echo "## 🐳 Docker Image Tags"
+            echo ""
+            echo "\`\`\`"
+            jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON"
+            echo "\`\`\`"
+          } >> "$GITHUB_STEP_SUMMARY"
