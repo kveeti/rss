@@ -69,11 +69,20 @@ export function buildPaginatedHref(
 	cursorParam: "left" | "right",
 	cursorValue: string | null | undefined,
 	href: string,
-	prevSearchParams: Record<string, string>
+	prevSearchParams: Record<string, string | string[] | undefined>
 ) {
 	if (!cursorValue) return undefined;
+
+	// Filter out undefined values and convert arrays to strings
+	const filteredParams: Record<string, string> = {};
+	for (const [key, value] of Object.entries(prevSearchParams)) {
+		if (value !== undefined) {
+			filteredParams[key] = Array.isArray(value) ? value[0] : value;
+		}
+	}
+
 	const newParams = new URLSearchParams({
-		...prevSearchParams,
+		...filteredParams,
 		[cursorParam]: cursorValue,
 	});
 

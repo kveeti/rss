@@ -3,7 +3,10 @@ import { JSX, splitProps } from "solid-js";
 import { IconChevronDown } from "./icons/chevron-down";
 
 export function Select(
-	allProps: { children: JSX.Element } & JSX.HTMLAttributes<HTMLSelectElement>
+	allProps: {
+		children: JSX.Element;
+		value?: string;
+	} & JSX.HTMLAttributes<HTMLSelectElement>
 ) {
 	const [split, rest] = splitProps(allProps, ["class"]);
 

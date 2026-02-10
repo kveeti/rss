@@ -1,4 +1,4 @@
-import { For, Ref, Show, createSignal, onCleanup } from "solid-js";
+import { For, JSX, Ref, Show, createSignal, onCleanup } from "solid-js";
 
 import { api } from "../lib/api";
 import { API_BASE_URL } from "../lib/constants";
@@ -29,7 +29,7 @@ type FailedItem = { feed_url: string; error?: string | null };
 const failedItemKey = (item: FailedItem) => `${item.feed_url}::${item.error ?? ""}`;
 
 export function OpmlImportSection() {
-	let importInputRef: Ref<HTMLInputElement>;
+	let importInputRef!: HTMLInputElement;
 	let importSource: EventSource | undefined;
 
 	const [importState, setImportState] = createSignal<ImportState>({
@@ -43,7 +43,6 @@ export function OpmlImportSection() {
 		setImportState({ status: "starting", loading: true });
 		setFailedItems([]);
 
-		// @ts-expect-error
 		const file = importInputRef?.files?.[0];
 		if (!file) {
 			setImportState({ status: "error", loading: false, error: "Select an OPML file." });
@@ -87,7 +86,6 @@ export function OpmlImportSection() {
 				progress: initialProgress,
 			});
 
-			// @ts-expect-error
 			importInputRef.value = "";
 
 			importSource = new EventSource(`${API_BASE_URL}/v1/feeds/import/${res.job_id}/events`);
@@ -132,10 +130,15 @@ export function OpmlImportSection() {
 		importSource?.close();
 	});
 
-	const importProgress = () =>
-		importState().status === "streaming" || importState().status === "done"
-			? importState().progress
-			: null;
+	const importProgress = () => {
+		const state = importState();
+		return state.status === "streaming" || state.status === "done" ? state.progress : null;
+	};
+
+	const importError = () => {
+		const state = importState();
+		return state.status === "error" ? state.error : null;
+	};
 
 	const trackFailures = (payload: ImportProgress) => {
 		const failures = payload.recent.filter((item) => item.status === "failed");
@@ -170,10 +173,7 @@ export function OpmlImportSection() {
 					type="file"
 					name="opml"
 					accept=".opml,.xml,text/xml"
-					ref={
-						// @ts-expect-error
-						importInputRef
-					}
+					ref={importInputRef}
 					required
 				/>
 
@@ -191,21 +191,22 @@ export function OpmlImportSection() {
 				</div>
 			</form>
 
-			<Show when={importProgress()}>
+			<Show when={importProgress()} keyed>
 				{(progress) => (
 					<div class="mt-4 text-sm" role="status" aria-live="polite">
+						<Show when={importState().status !== "done" && !progress.done}>
+							<p class="text-gray-11">Import in progress...</p>
+						</Show>
+
 						<p>
-							Imported {progress().imported} of {progress().total}
+							Imported {progress.imported} of {progress.total}
 						</p>
-						{progress().skipped > 0 && <p>Skipped {progress().skipped}</p>}
-						{progress().failed > 0 && <p>Failed {progress().failed}</p>}
-						<Show when={importState().status === "done" || progress().done}>
+						{progress.skipped > 0 && <p>Skipped {progress.skipped}</p>}
+						{progress.failed > 0 && <p>Failed {progress.failed}</p>}
+						<Show when={importState().status === "done" || progress.done}>
 							<p class="bg-green-a5 border-green-a6 mt-1 border p-4">
 								Import complete.
 							</p>
-						</Show>
-						<Show when={importState().status !== "done" && !progress().done}>
-							<p class="text-gray-11">Import in progress...</p>
 						</Show>
 
 						<Show when={failedItems().length > 0}>
@@ -227,8 +228,8 @@ export function OpmlImportSection() {
 				)}
 			</Show>
 
-			<Show when={importState().status === "error"}>
-				<p class="bg-red-a3 border-red-a6 mt-4 border p-2 text-sm">{importState().error}</p>
+			<Show when={importError()} keyed>
+				{(error) => <p class="bg-red-a3 border-red-a6 mt-4 border p-2 text-sm">{error}</p>}
 			</Show>
 		</section>
 	);

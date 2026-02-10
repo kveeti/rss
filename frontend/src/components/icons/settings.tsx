@@ -1,4 +1,6 @@
-export function IconSettings(props) {
+import type { JSX } from "solid-js";
+
+export function IconSettings(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
 	return (
 		<svg
 			{...props}

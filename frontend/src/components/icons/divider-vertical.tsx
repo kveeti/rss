@@ -1,4 +1,6 @@
-export function IconDividerVertical(props) {
+import type { JSX } from "solid-js";
+
+export function IconDividerVertical(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
 	return (
 		<svg
 			width="15"

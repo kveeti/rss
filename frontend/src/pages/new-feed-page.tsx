@@ -1,6 +1,6 @@
 import { useNavigate } from "@solidjs/router";
 import { useMutation, useQueryClient } from "@tanstack/solid-query";
-import { For, Ref, Show, createSignal } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
 import { IconInfo } from "../components/icons/info";
@@ -40,8 +40,8 @@ type States =
 	  };
 
 export default function NewFeedPage() {
-	let inputRef: Ref<HTMLInputElement>;
-	let formRef: Ref<HTMLFormElement>;
+	let inputRef!: HTMLInputElement;
+	let formRef!: HTMLFormElement;
 	const queryClient = useQueryClient();
 
 	const [state, setState] = createSignal<States>({ phase: "init", loading: false });
@@ -129,25 +129,9 @@ export default function NewFeedPage() {
 				<main class="mx-auto max-w-[20rem]">
 					<h1 class="font-cool mt-4 mb-8 text-3xl font-medium">New Feed</h1>
 
-					<form
-						class="space-y-4"
-						onSubmit={onSubmit}
-						ref={
-							// @ts-expect-error
-							formRef
-						}
-					>
+					<form class="space-y-4" onSubmit={onSubmit} ref={formRef}>
 						<div class="flex flex-col gap-2">
-							<Input
-								label="URL"
-								type="text"
-								name="url"
-								ref={
-									// @ts-expect-error
-									inputRef
-								}
-								required
-							/>
+							<Input label="URL" type="text" name="url" ref={inputRef} required />
 						</div>
 
 						<div class="flex justify-between gap-2">
@@ -189,7 +173,6 @@ export default function NewFeedPage() {
 								state().feed_urls
 							}
 							onClick={(url) => {
-								// @ts-expect-error
 								inputRef.value = url;
 							}}
 						/>

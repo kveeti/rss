@@ -93,7 +93,7 @@ function EntryMeta(props: ParentProps) {
 	return (
 		<div class="flex items-center gap-1">
 			{Array.isArray(resolved)
-				? resolved.map((c, i) => {
+				? resolved.filter(Boolean).map((c, i) => {
 						if (!c) return null;
 
 						return (

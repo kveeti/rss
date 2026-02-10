@@ -1,4 +1,6 @@
-export function IconCheck(props) {
+import type { JSX } from "solid-js";
+
+export function IconCheck(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
 	return (
 		<svg
 			{...props}

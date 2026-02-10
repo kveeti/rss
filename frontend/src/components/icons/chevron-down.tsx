@@ -1,4 +1,6 @@
-export function IconChevronDown(props) {
+import type { JSX } from "solid-js";
+
+export function IconChevronDown(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
 	return (
 		<svg
 			width="15"

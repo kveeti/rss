@@ -1,4 +1,6 @@
-export function IconCross(props) {
+import type { JSX } from "solid-js";
+
+export function IconCross(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
 	return (
 		<svg
 			{...props}

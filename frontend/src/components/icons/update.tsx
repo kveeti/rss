@@ -1,4 +1,6 @@
-export function IconUpdate(props) {
+import type { JSX } from "solid-js";
+
+export function IconUpdate(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
 	return (
 		<svg
 			{...props}

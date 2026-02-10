@@ -1,4 +1,6 @@
-export function IconPlus(props) {
+import type { JSX } from "solid-js";
+
+export function IconPlus(props: JSX.SvgSVGAttributes<SVGSVGElement>) {
 	return (
 		<svg
 			{...props}
