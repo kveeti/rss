@@ -109,10 +109,8 @@ export const routes: RouteDefinition[] = [
 				fallback={
 					<NavWrap>
 						<Nav>
-							<div class="flex w-full justify-between">
-								<DefaultNavLinks />
-								<NavPaginationLinks />
-							</div>
+							<DefaultNavLinks />
+							<NavPaginationLinks />
 						</Nav>
 					</NavWrap>
 				}
@@ -129,10 +127,8 @@ export const routes: RouteDefinition[] = [
 				fallback={
 					<NavWrap>
 						<Nav>
-							<div class="flex w-full justify-between">
-								<DefaultNavLinks />
-								<NavPaginationLinks />
-							</div>
+							<DefaultNavLinks />
+							<NavPaginationLinks />
 						</Nav>
 					</NavWrap>
 				}
