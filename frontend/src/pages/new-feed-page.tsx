@@ -134,15 +134,7 @@ export default function NewFeedPage() {
 							<Input label="URL" type="text" name="url" ref={inputRef} required />
 						</div>
 
-						<div class="flex justify-between gap-2">
-							<a
-								type="button"
-								class={buttonStyles({ variant: "ghost" })}
-								href="/feeds"
-							>
-								Back
-							</a>
-
+						<div class="flex justify-end">
 							<Button type="submit" isLoading={state().loading}>
 								{state().phase === "only_one_similar_feed"
 									? "Add anyway"
