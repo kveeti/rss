@@ -29,6 +29,7 @@ pub async fn start_api(data: Data, config: ApiConfig, mut shutdown_rx: watch::Re
             post(handlers::feeds::new_feed).get(handlers::feeds::query_feeds),
         )
         .route("/feeds/import", post(handlers::feeds::import_opml))
+        .route("/feeds/export", get(handlers::feeds::export_opml))
         .route(
             "/feeds/import/{job_id}/events",
             get(handlers::feeds::import_opml_events),

@@ -5,6 +5,7 @@ import { Button, buttonStyles } from "../components/button";
 import { Empty } from "../components/empty";
 import { FeedIcon } from "../components/feed-icon";
 import { IconPlus } from "../components/icons/plus";
+import { OpmlExportSection } from "../components/opml-export";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { prettifyUrl } from "../lib/urls";
 import { feedsQueryOptions } from "./feeds-page.data";
@@ -23,15 +24,19 @@ export default function FeedsPage() {
 					<div class="mb-4 flex items-center justify-between gap-2">
 						<h1 class="font-cool text-3xl font-medium">Feeds</h1>
 
-						<a
-							href="/feeds/new"
-							class={
-								buttonStyles({ variant: "ghost", size: "withIcon" }) +
-								" inline-flex gap-3"
-							}
-						>
-							<IconPlus class="inline" /> <span>New feed</span>
-						</a>
+						<div class="flex items-center gap-2">
+							<OpmlExportSection />
+
+							<a
+								href="/feeds/new"
+								class={
+									buttonStyles({ variant: "ghost", size: "withIcon" }) +
+									" inline-flex gap-3"
+								}
+							>
+								<IconPlus class="inline" /> <span>New feed</span>
+							</a>
+						</div>
 					</div>
 
 					<Feeds />

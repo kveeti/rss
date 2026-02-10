@@ -7,6 +7,9 @@ pub use new_feed::new_feed;
 mod import_opml;
 pub use import_opml::{import_opml, import_opml_events};
 
+mod export_opml;
+pub use export_opml::export_opml;
+
 mod query_feeds;
 pub use query_feeds::query_feeds;
 
