@@ -1,4 +1,4 @@
-import { createMutation, useQueryClient } from "@tanstack/solid-query";
+import { useMutation, useQueryClient } from "@tanstack/solid-query";
 import {
 	type Accessor,
 	type JSX,
@@ -160,7 +160,7 @@ function EntryReadToggle(props: EntryReadToggleProps) {
 		return !!entry().read_at;
 	};
 
-	const toggleReadMutation = createMutation(() => ({
+	const toggleReadMutation = useMutation(() => ({
 		mutationFn: async ({ id, read }: { id: string; read: boolean }) => {
 			return api<{ success: boolean }>({
 				method: "POST",

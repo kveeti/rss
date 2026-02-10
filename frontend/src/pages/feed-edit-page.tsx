@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "@solidjs/router";
-import { createMutation, createQuery, useQueryClient } from "@tanstack/solid-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/solid-query";
 import { Match, Switch, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 
@@ -38,7 +38,7 @@ export default function FeedEditPage() {
 }
 
 function FeedEdit(props: { feedId: string }) {
-	const query = createQuery(() => feedQueryOptions(props.feedId));
+	const query = useQuery(() => feedQueryOptions(props.feedId));
 	const [latestFeed, setLatestFeed] = createSignal<FeedWithEntryCounts | null>(null);
 
 	const feed = () => latestFeed() ?? query.data ?? null;
@@ -201,7 +201,7 @@ function EditForm(props: {
 	});
 	const isSaving = () => state.saveStatus === "saving";
 
-	const updateFeed = createMutation(() => ({
+	const updateFeed = useMutation(() => ({
 		mutationFn: async (data: { title: string; siteUrl: string; feedUrl: string }) => {
 			return api<FeedWithEntryCounts>({
 				method: "PUT",
@@ -289,7 +289,7 @@ function DeleteSection(props: { feedId: string }) {
 		},
 	});
 
-	const deleteFeed = createMutation(() => ({
+	const deleteFeed = useMutation(() => ({
 		mutationFn: async () => {
 			return api<void>({
 				method: "DELETE",
@@ -343,7 +343,7 @@ function SyncButton(props: {
 		"idle"
 	);
 
-	const syncFeed = createMutation(() => ({
+	const syncFeed = useMutation(() => ({
 		mutationFn: async () => {
 			return api<FeedWithEntryCounts>({
 				method: "POST",

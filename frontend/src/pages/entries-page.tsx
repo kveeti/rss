@@ -1,5 +1,5 @@
 import { useSearchParams } from "@solidjs/router";
-import { createQuery } from "@tanstack/solid-query";
+import { useQuery } from "@tanstack/solid-query";
 import { For, JSX, Match, Show, Switch, createSignal } from "solid-js";
 
 import { Button } from "../components/button";
@@ -46,7 +46,7 @@ export default function EntriesPage() {
 }
 
 function NavPagination(props: FilterParams) {
-	const query = createQuery(() => entriesQueryOptions(props));
+	const query = useQuery(() => entriesQueryOptions(props));
 
 	return (
 		<Show when={query.data} fallback={<NavPaginationLinks />}>
@@ -228,7 +228,7 @@ function FilterChip(props: { active: boolean; onClick: () => void; children: JSX
 }
 
 function EntriesList(props: FilterParams) {
-	const query = createQuery(() => entriesQueryOptions(props));
+	const query = useQuery(() => entriesQueryOptions(props));
 	const [searchParams] = useSearchParams();
 
 	const nextHref = () =>

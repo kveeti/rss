@@ -1,5 +1,5 @@
 import { useSearchParams } from "@solidjs/router";
-import { createQuery, useQueryClient } from "@tanstack/solid-query";
+import { useQuery, useQueryClient } from "@tanstack/solid-query";
 import { For, Match, Show, Switch, createEffect } from "solid-js";
 
 import { Button } from "../components/button";
@@ -31,7 +31,7 @@ export default function UnreadPage() {
 function useUnreadEntriesQuery(params: () => UnreadEntriesParams) {
 	const queryClient = useQueryClient();
 
-	const query = createQuery(() => unreadEntriesQueryOptions(params()));
+	const query = useQuery(() => unreadEntriesQueryOptions(params()));
 
 	createEffect(() => {
 		const data = query.data;

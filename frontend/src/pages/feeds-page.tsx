@@ -1,4 +1,4 @@
-import { createQuery } from "@tanstack/solid-query";
+import { useQuery } from "@tanstack/solid-query";
 import { For, Match, Switch, createEffect, createSignal, onCleanup } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
@@ -42,7 +42,7 @@ export default function FeedsPage() {
 }
 
 function Feeds() {
-	const query = createQuery(() => feedsQueryOptions());
+	const query = useQuery(() => feedsQueryOptions());
 
 	return (
 		<Switch>

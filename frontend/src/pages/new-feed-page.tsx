@@ -1,5 +1,5 @@
 import { useNavigate } from "@solidjs/router";
-import { createMutation, useQueryClient } from "@tanstack/solid-query";
+import { useMutation, useQueryClient } from "@tanstack/solid-query";
 import { For, Ref, Show, createSignal } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
@@ -47,7 +47,7 @@ export default function NewFeedPage() {
 	const [state, setState] = createSignal<States>({ phase: "init", loading: false });
 	const navigate = useNavigate();
 
-	const addFeedMutation = createMutation(() => ({
+	const addFeedMutation = useMutation(() => ({
 		mutationFn: async ({
 			url,
 			force_similar_feed,

@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from "@solidjs/router";
-import { createQuery } from "@tanstack/solid-query";
+import { useQuery } from "@tanstack/solid-query";
 import { For, Match, Switch } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
@@ -37,7 +37,7 @@ export default function FeedPage() {
 }
 
 function FeedDetails(props: { feedId: string }) {
-	const query = createQuery(() => feedQueryOptions(props.feedId));
+	const query = useQuery(() => feedQueryOptions(props.feedId));
 
 	return (
 		<Switch>
@@ -119,7 +119,7 @@ function FeedEntries(props: { feedId: string }) {
 }
 
 function FeedEntriesList(props: { feedId: string; left?: string; right?: string; limit?: string }) {
-	const query = createQuery(() =>
+	const query = useQuery(() =>
 		feedEntriesQueryOptions({
 			feedId: props.feedId,
 			limit: props.limit,
