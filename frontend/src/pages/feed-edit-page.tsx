@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "@solidjs/router";
 import { createMutation, createQuery, useQueryClient } from "@tanstack/solid-query";
-import { Match, Show, Switch, createSignal } from "solid-js";
+import { Match, Switch, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 
 import { Button } from "../components/button";
@@ -12,7 +12,6 @@ import { Input } from "../components/input";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { api } from "../lib/api";
 import { FeedWithEntryCounts, feedQueryOptions } from "./feed-page.data";
-import { feedsQueryOptions } from "./feeds-page.data";
 
 export default function FeedEditPage() {
 	const params = useParams();
@@ -39,7 +38,6 @@ export default function FeedEditPage() {
 }
 
 function FeedEdit(props: { feedId: string }) {
-	const queryClient = useQueryClient();
 	const query = createQuery(() => feedQueryOptions(props.feedId));
 	const [latestFeed, setLatestFeed] = createSignal<FeedWithEntryCounts | null>(null);
 

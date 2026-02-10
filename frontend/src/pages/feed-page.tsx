@@ -11,12 +11,6 @@ import { Pagination } from "../components/pagination";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { feedEntriesQueryOptions, feedQueryOptions } from "./feed-page.data";
 
-// TODO:
-// - pagination button positioning, maybe theres a way to
-//   have them not jump around when paginating to
-//   between pages with different amounts of entries
-// - backend should tell if front should attempt to download favicon
-
 export default function FeedPage() {
 	const params = useParams();
 	const feedId = params.feedId;
@@ -221,16 +215,4 @@ function FeedEntriesSkeleton() {
 			</div>
 		</>
 	);
-}
-
-const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-const unitsInSec = [60, 3600, 86400, 86400 * 7, 86400 * 30, 86400 * 365, Infinity];
-const unitStrings = ["second", "minute", "hour", "day", "week", "month", "year"] as const;
-
-function relativeTime(date: Date) {
-	const secondsDiff = Math.round((date.getTime() - Date.now()) / 1000);
-	const unitIndex = unitsInSec.findIndex((cutoff) => cutoff > Math.abs(secondsDiff));
-	const divisor = unitIndex ? unitsInSec[unitIndex - 1] : 1;
-
-	return rtf.format(Math.floor(secondsDiff / divisor), unitStrings[unitIndex]);
 }

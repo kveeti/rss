@@ -8,7 +8,6 @@ import { Input } from "../components/input";
 import { OpmlImportSection } from "../components/opml-import";
 import { DefaultNavLinks, Nav, NavWrap, Page } from "../layout";
 import { api } from "../lib/api";
-import { feedsQueryOptions } from "./feeds-page.data";
 
 type States =
 	| {
