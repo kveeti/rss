@@ -33,6 +33,13 @@ if (import.meta.env.DEV && !(root instanceof HTMLElement)) {
 	);
 }
 
+const UnreadPage = lazy(() => import("./pages/unread-page"));
+const FeedsPage = lazy(() => import("./pages/feeds-page"));
+const NewFeedPage = lazy(() => import("./pages/new-feed-page"));
+const FeedPage = lazy(() => import("./pages/feed-page"));
+const FeedEditPage = lazy(() => import("./pages/feed-edit-page"));
+const EntriesPage = lazy(() => import("./pages/entries-page"));
+
 export const routes: RouteDefinition[] = [
 	{
 		path: "/feeds",
@@ -46,7 +53,7 @@ export const routes: RouteDefinition[] = [
 					</NavWrap>
 				}
 			>
-				{lazy(() => import("./pages/feeds-page"))()}
+				<FeedsPage />
 			</Suspense>
 		),
 		preload: () => prefetchFeedsPage(queryClient),
@@ -63,7 +70,7 @@ export const routes: RouteDefinition[] = [
 					</NavWrap>
 				}
 			>
-				{lazy(() => import("./pages/new-feed-page"))()}
+				<NewFeedPage />
 			</Suspense>
 		),
 		preload: preloadsNewFeedPage,
@@ -80,7 +87,7 @@ export const routes: RouteDefinition[] = [
 					</NavWrap>
 				}
 			>
-				{lazy(() => import("./pages/feed-page"))()}
+				<FeedPage />
 			</Suspense>
 		),
 		preload: ({ params }) => prefetchFeedPage(queryClient, params.feedId),
@@ -97,7 +104,7 @@ export const routes: RouteDefinition[] = [
 					</NavWrap>
 				}
 			>
-				{lazy(() => import("./pages/feed-edit-page"))()}
+				<FeedEditPage />
 			</Suspense>
 		),
 		preload: ({ params }) => prefetchFeedEditPage(queryClient, params.feedId),
@@ -110,12 +117,11 @@ export const routes: RouteDefinition[] = [
 					<NavWrap>
 						<Nav>
 							<DefaultNavLinks />
-							<NavPaginationLinks />
 						</Nav>
 					</NavWrap>
 				}
 			>
-				{lazy(() => import("./pages/unread-page"))()}
+				<UnreadPage />
 			</Suspense>
 		),
 		preload: ({ location }) => prefetchUnreadPage(queryClient, { search: location.search }),
@@ -133,7 +139,7 @@ export const routes: RouteDefinition[] = [
 					</NavWrap>
 				}
 			>
-				{lazy(() => import("./pages/entries-page"))()}
+				<EntriesPage />
 			</Suspense>
 		),
 		preload: ({ location }) => prefetchEntriesPage(queryClient, { search: location.search }),
