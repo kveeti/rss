@@ -352,7 +352,8 @@ function SyncButton(props: {
 		},
 		onSuccess: (latestFeed) => {
 			props.setLatestFeed(latestFeed);
-			setSyncStatus(latestFeed.last_sync_result === "success" ? "synced" : "error");
+			const isOk = latestFeed.last_sync_result === "success" || latestFeed.last_sync_result === "not_modified";
+			setSyncStatus(isOk ? "synced" : "error");
 			queryClient.invalidateQueries({ queryKey: ["feed-entries"] });
 			queryClient.invalidateQueries({ queryKey: ["feed", props.feedId] });
 
@@ -396,7 +397,7 @@ function SyncButton(props: {
 }
 
 function formatSyncError(result: string | null) {
-	if (!result || result === "success") {
+	if (!result || result === "success" || result === "not_modified") {
 		return null;
 	}
 

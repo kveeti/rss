@@ -16,6 +16,7 @@ mod sync;
 pub use sync::*;
 
 pub const SYNC_RESULT_SUCCESS: &str = "success";
+pub const SYNC_RESULT_NOT_MODIFIED: &str = "not_modified";
 pub const SYNC_RESULT_PARSE_ERROR: &str = "parse_error";
 pub const SYNC_RESULT_NOT_FOUND: &str = "not_found";
 pub const SYNC_RESULT_DISALLOWED: &str = "disallowed";
@@ -29,6 +30,7 @@ pub const SYNC_RESULT_DB_ERROR: &str = "db_error";
 pub fn sync_result_for_feed_result(result: &FeedResult) -> &'static str {
     match result {
         FeedResult::Loaded(_) => SYNC_RESULT_SUCCESS,
+        FeedResult::NotModified => SYNC_RESULT_NOT_MODIFIED,
         FeedResult::NeedsChoice(_) => SYNC_RESULT_NEEDS_CHOICE,
         FeedResult::NotFound => SYNC_RESULT_NOT_FOUND,
         FeedResult::Disallowed => SYNC_RESULT_DISALLOWED,
@@ -50,30 +52,39 @@ pub fn sync_result_for_error(err: &FeedError) -> &'static str {
     }
 }
 
-#[tracing::instrument(name = "load_feed")]
-pub async fn load_feed(url: &str) -> Result<FeedResult, FeedError> {
-    tracing::info!("loading feed");
-    let result = FeedLoader::new(url).run().await;
+#[tracing::instrument(name = "load_feed", skip(etag, last_modified))]
+pub async fn load_feed(
+    url: &str,
+    etag: Option<String>,
+    last_modified: Option<String>,
+) -> Result<FeedResult, FeedError> {
+    let result = FeedLoader::new(url, etag, last_modified).run().await;
     match &result {
         Ok(FeedResult::Loaded(loaded)) => {
-            tracing::info!("successfully loaded feed: {}", loaded.feed.title)
+            tracing::info!("loaded feed: {}", loaded.feed.title)
         }
+        Ok(FeedResult::NotModified) => tracing::info!("feed not modified"),
         Ok(FeedResult::NeedsChoice(urls)) => {
-            tracing::debug!("feed discovery found {} options", urls.len())
+            tracing::info!("feed discovery found {} options", urls.len())
         }
-        Ok(FeedResult::NotFound) => tracing::debug!("feed not found"),
+        Ok(FeedResult::NotFound) => tracing::warn!("feed not found"),
         Ok(FeedResult::Disallowed) => tracing::warn!("feed disallowed by robots.txt"),
         Err(e) => tracing::error!("failed to load feed: {}", e),
     }
     result
 }
 
-#[tracing::instrument(name = "load_selected_feed")]
-pub async fn load_selected_feed(url: &str) -> Result<LoadedFeed, FeedError> {
-    tracing::info!("loading selected feed");
-    let result = FeedLoader::new_selected(url).run().await;
+#[tracing::instrument(name = "load_selected_feed", skip(etag, last_modified))]
+pub async fn load_selected_feed(
+    url: &str,
+    etag: Option<String>,
+    last_modified: Option<String>,
+) -> Result<LoadedFeed, FeedError> {
+    let result = FeedLoader::new_selected(url, etag, last_modified)
+        .run()
+        .await;
     match &result {
-        Ok(loaded) => tracing::info!("successfully loaded selected feed: {}", loaded.feed.title),
+        Ok(loaded) => tracing::info!("loaded selected feed: {}", loaded.feed.title),
         Err(e) => tracing::error!("failed to load selected feed: {}", e),
     }
     result
@@ -92,6 +103,7 @@ static CLIENT: Lazy<Client> = Lazy::new(|| {
 #[derive(Debug)]
 pub enum FeedResult {
     Loaded(LoadedFeed),
+    NotModified,
     NeedsChoice(Vec<String>),
     NotFound,
     Disallowed,
@@ -102,6 +114,8 @@ pub struct LoadedFeed {
     pub feed: NewFeed,
     pub entries: Vec<NewEntry>,
     pub icon: Option<NewIcon>,
+    pub http_etag: Option<String>,
+    pub http_last_modified: Option<String>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -150,13 +164,52 @@ impl From<reqwest::Error> for FetchError {
 }
 
 enum Content {
-    Feed { bytes: Vec<u8>, final_url: Url },
-    Html { bytes: Vec<u8>, final_url: Url },
+    Feed {
+        bytes: Vec<u8>,
+        final_url: Url,
+        etag: Option<String>,
+        last_modified: Option<String>,
+    },
+    Html {
+        bytes: Vec<u8>,
+        final_url: Url,
+    },
     NotFound,
+    NotModified,
 }
 
-struct Initial;
-struct Selected;
+trait HasConditionalHeaders {
+    fn etag(&self) -> Option<&str>;
+    fn last_modified(&self) -> Option<&str>;
+}
+
+struct Initial {
+    etag: Option<String>,
+    last_modified: Option<String>,
+}
+
+impl HasConditionalHeaders for Initial {
+    fn etag(&self) -> Option<&str> {
+        self.etag.as_deref()
+    }
+    fn last_modified(&self) -> Option<&str> {
+        self.last_modified.as_deref()
+    }
+}
+
+struct Selected {
+    etag: Option<String>,
+    last_modified: Option<String>,
+}
+
+impl HasConditionalHeaders for Selected {
+    fn etag(&self) -> Option<&str> {
+        self.etag.as_deref()
+    }
+    fn last_modified(&self) -> Option<&str> {
+        self.last_modified.as_deref()
+    }
+}
 
 struct FetchedHtml {
     bytes: Vec<u8>,
@@ -166,12 +219,16 @@ struct FetchedHtml {
 struct FetchedFeed {
     bytes: Vec<u8>,
     final_url: Url,
+    etag: Option<String>,
+    last_modified: Option<String>,
 }
 
 struct ParsedFeed {
     meta: FeedMeta,
     entries: Vec<NewEntry>,
     final_url: Url,
+    etag: Option<String>,
+    last_modified: Option<String>,
 }
 
 struct FeedMeta {
@@ -183,11 +240,13 @@ enum Fetched {
     Feed(FeedLoader<FetchedFeed>),
     Html(FeedLoader<FetchedHtml>),
     NotFound,
+    NotModified,
 }
 
 enum SelectedFetched {
     Feed(FeedLoader<FetchedFeed>),
     NotFound,
+    NotModified,
 }
 
 struct FeedLoader<S> {
@@ -197,17 +256,21 @@ struct FeedLoader<S> {
 }
 
 impl FeedLoader<Initial> {
-    fn new(url: &str) -> Self {
+    fn new(url: &str, etag: Option<String>, last_modified: Option<String>) -> Self {
         Self {
             robots: HashMap::new(),
             url: ensure_scheme(url),
-            state: Initial,
+            state: Initial {
+                etag,
+                last_modified,
+            },
         }
     }
 
     async fn run(self) -> Result<FeedResult, FeedError> {
         match self.fetch().await? {
             Fetched::NotFound => Ok(FeedResult::NotFound),
+            Fetched::NotModified => Ok(FeedResult::NotModified),
             Fetched::Feed(loader) => loader.run().await.map(FeedResult::Loaded),
             Fetched::Html(loader) => loader.run().await,
         }
@@ -215,28 +278,27 @@ impl FeedLoader<Initial> {
 
     async fn fetch(mut self) -> Result<Fetched, FeedError> {
         let url = self.url.clone();
-        tracing::debug!("fetching url: {}", url);
-        let response = self.do_fetch(&url).await.map_err(|e| FeedError::Fetch(e))?;
+        let response = self.do_fetch(&url).await.map_err(FeedError::Fetch)?;
 
         Ok(match classify_response(response).await? {
-            Content::NotFound => {
-                tracing::debug!("content not found");
-                Fetched::NotFound
-            }
-            Content::Feed { bytes, final_url } => {
-                tracing::debug!(
-                    "fetched feed content ({} bytes, final_url: {})",
-                    bytes.len(),
-                    final_url
-                );
-                Fetched::Feed(self.into_state(FetchedFeed { bytes, final_url }))
+            Content::NotFound => Fetched::NotFound,
+            Content::NotModified => Fetched::NotModified,
+            Content::Feed {
+                bytes,
+                final_url,
+                etag,
+                last_modified,
+            } => {
+                tracing::debug!(bytes = bytes.len(), %final_url, "fetched feed");
+                Fetched::Feed(self.into_state(FetchedFeed {
+                    bytes,
+                    final_url,
+                    etag,
+                    last_modified,
+                }))
             }
             Content::Html { bytes, final_url } => {
-                tracing::debug!(
-                    "fetched html content ({} bytes, final_url: {})",
-                    bytes.len(),
-                    final_url
-                );
+                tracing::debug!(bytes = bytes.len(), %final_url, "fetched html");
                 Fetched::Html(self.into_state(FetchedHtml { bytes, final_url }))
             }
         })
@@ -244,41 +306,47 @@ impl FeedLoader<Initial> {
 }
 
 impl FeedLoader<Selected> {
-    fn new_selected(url: &str) -> Self {
+    fn new_selected(url: &str, etag: Option<String>, last_modified: Option<String>) -> Self {
         Self {
             robots: HashMap::new(),
             url: ensure_scheme(url),
-            state: Selected,
+            state: Selected {
+                etag,
+                last_modified,
+            },
         }
     }
 
     async fn run(self) -> Result<LoadedFeed, FeedError> {
         match self.fetch().await? {
             SelectedFetched::NotFound => Err(FeedError::NotFound),
+            SelectedFetched::NotModified => Err(FeedError::NotFound), // Shouldn't happen in this flow
             SelectedFetched::Feed(loader) => loader.run().await,
         }
     }
 
     async fn fetch(mut self) -> Result<SelectedFetched, FeedError> {
         let url = self.url.clone();
-        tracing::debug!("fetching selected url: {}", url);
-        let response = self.do_fetch(&url).await.map_err(|e| FeedError::Fetch(e))?;
+        let response = self.do_fetch(&url).await.map_err(FeedError::Fetch)?;
 
         match classify_response(response).await? {
-            Content::Feed { bytes, final_url } => {
-                tracing::debug!("fetched selected feed content ({} bytes)", bytes.len());
-                Ok(SelectedFetched::Feed(
-                    self.into_state(FetchedFeed { bytes, final_url }),
-                ))
+            Content::Feed {
+                bytes,
+                final_url,
+                etag,
+                last_modified,
+            } => {
+                tracing::debug!(bytes = bytes.len(), "fetched selected feed");
+                Ok(SelectedFetched::Feed(self.into_state(FetchedFeed {
+                    bytes,
+                    final_url,
+                    etag,
+                    last_modified,
+                })))
             }
-            Content::Html { .. } => {
-                tracing::warn!("expected feed but got html");
-                Err(FeedError::UnexpectedHtml)
-            }
-            Content::NotFound => {
-                tracing::debug!("selected feed not found");
-                Ok(SelectedFetched::NotFound)
-            }
+            Content::Html { .. } => Err(FeedError::UnexpectedHtml),
+            Content::NotFound => Ok(SelectedFetched::NotFound),
+            Content::NotModified => Ok(SelectedFetched::NotModified),
         }
     }
 }
@@ -308,8 +376,11 @@ impl FeedLoader<FetchedHtml> {
             .map(|href| absolutize(href, &origin))
             .collect();
 
-        tracing::debug!("discovered {} feed urls from html", feed_urls.len());
-        tracing::trace!("discovered feeds: {:?}", feed_urls);
+        tracing::debug!(
+            count = feed_urls.len(),
+            ?feed_urls,
+            "discovered feeds from html"
+        );
 
         feed_urls
     }
@@ -318,7 +389,10 @@ impl FeedLoader<FetchedHtml> {
         FeedLoader {
             robots: self.robots,
             url: feed_url,
-            state: Selected,
+            state: Selected {
+                etag: None,
+                last_modified: None,
+            },
         }
     }
 }
@@ -329,19 +403,16 @@ impl FeedLoader<FetchedFeed> {
     }
 
     fn parse(self) -> Result<FeedLoader<ParsedFeed>, FeedError> {
-        tracing::debug!("parsing feed content ({} bytes)", self.state.bytes.len());
         let (meta, entries) = parse_feed(&self.state.bytes, &self.url).map_err(|e| {
-            tracing::error!("failed to parse feed: {:?}", e);
+            tracing::debug!("failed to parse feed: {:?}", e);
             FeedError::Parse
         })?;
 
-        tracing::debug!(
-            "parsed feed '{}' with {} entries",
-            meta.title,
-            entries.len()
-        );
+        tracing::debug!(title = meta.title, entries = entries.len(), "parsed feed");
 
         let final_url = self.state.final_url.to_owned();
+        let etag = self.state.etag.clone();
+        let last_modified = self.state.last_modified.clone();
 
         Ok(self.into_state(ParsedFeed {
             meta: FeedMeta {
@@ -350,6 +421,8 @@ impl FeedLoader<FetchedFeed> {
             },
             entries,
             final_url,
+            etag,
+            last_modified,
         }))
     }
 }
@@ -369,6 +442,8 @@ impl FeedLoader<ParsedFeed> {
             },
             entries: self.state.entries,
             icon,
+            http_etag: self.state.etag,
+            http_last_modified: self.state.last_modified,
         }
     }
 
@@ -385,9 +460,7 @@ impl FeedLoader<ParsedFeed> {
             })
             .unwrap_or_else(|| self.state.final_url.origin().ascii_serialization());
 
-        tracing::debug!("loading favicon from origin: {}", origin);
-
-        let response = self.do_fetch(&origin).await.ok()?;
+        let response = self.do_fetch_with_headers(&origin, None, None).await.ok()?;
         let bytes = response.bytes().await.ok()?;
         let favicon_urls = {
             let html = Html::from_bytes(&bytes);
@@ -397,19 +470,19 @@ impl FeedLoader<ParsedFeed> {
             favicon_urls
         };
 
-        tracing::trace!("trying {} favicon candidates", favicon_urls.len());
+        tracing::debug!(candidates = favicon_urls.len(), "looking for favicon");
 
         for href in favicon_urls {
             let url = absolutize(&href, &origin);
             tracing::trace!("trying favicon url: {}", url);
 
             if let Some(icon) = parse_data_url(&url) {
-                tracing::debug!("loaded favicon from data url");
+                tracing::debug!("found favicon (data url)");
                 return Some(icon);
             }
 
             if let Some(icon) = self.fetch_icon(&url).await {
-                tracing::debug!("loaded favicon from: {}", url);
+                tracing::debug!(%url, "found favicon");
                 return Some(icon);
             }
         }
@@ -424,7 +497,7 @@ impl FeedLoader<ParsedFeed> {
             return None;
         }
 
-        let response = self.do_fetch(url).await.ok()?;
+        let response = self.do_fetch_with_headers(url, None, None).await.ok()?;
 
         if response.status() != StatusCode::OK {
             tracing::trace!("favicon fetch failed with status: {}", response.status());
@@ -458,6 +531,14 @@ impl FeedLoader<ParsedFeed> {
     }
 }
 
+impl<S: HasConditionalHeaders> FeedLoader<S> {
+    async fn do_fetch(&mut self, url: &str) -> Result<Response, FetchError> {
+        let etag = self.state.etag().map(|s| s.to_owned());
+        let last_modified = self.state.last_modified().map(|s| s.to_owned());
+        self.do_fetch_with_headers(url, etag, last_modified).await
+    }
+}
+
 impl<S> FeedLoader<S> {
     fn into_state<T>(self, state: T) -> FeedLoader<T> {
         FeedLoader {
@@ -467,16 +548,32 @@ impl<S> FeedLoader<S> {
         }
     }
 
-    async fn do_fetch(&mut self, url: &str) -> Result<Response, FetchError> {
-        tracing::trace!("fetching: {}", url);
-
+    async fn do_fetch_with_headers(
+        &mut self,
+        url: &str,
+        etag: Option<String>,
+        last_modified: Option<String>,
+    ) -> Result<Response, FetchError> {
         if !self.is_allowed(url).await? {
-            tracing::warn!("fetch disallowed by robots.txt: {}", url);
             return Err(FetchError::Disallowed);
         }
 
-        let response = CLIENT.get(url).send().await.map_err(FetchError::Network)?;
-        tracing::trace!("fetch completed with status: {}", response.status());
+        let has_conditional = etag.is_some() || last_modified.is_some();
+        let mut request = CLIENT.get(url);
+
+        if let Some(ref etag) = etag {
+            request = request.header("If-None-Match", etag);
+        }
+        if let Some(ref last_modified) = last_modified {
+            request = request.header("If-Modified-Since", last_modified);
+        }
+
+        let response = request.send().await.map_err(FetchError::Network)?;
+        tracing::debug!(
+            status = %response.status(),
+            conditional = has_conditional,
+            "fetched {url}"
+        );
 
         Ok(response)
     }
@@ -521,43 +618,47 @@ async fn classify_response(response: Response) -> Result<Content, FeedError> {
     let status = response.status();
     let final_url = response.url().to_owned();
 
-    tracing::trace!("classifying response: status={status}, url={final_url}");
-
     match status {
-        StatusCode::NOT_FOUND => {
-            tracing::trace!("classified as not found");
-            Ok(Content::NotFound)
-        }
+        StatusCode::NOT_FOUND => Ok(Content::NotFound),
+        StatusCode::NOT_MODIFIED => Ok(Content::NotModified),
 
         StatusCode::OK => {
-            let content_type = response
-                .headers()
+            let headers = response.headers();
+
+            let content_type = headers
                 .get("content-type")
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or("")
                 .to_string();
+            let etag = headers
+                .get("etag")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string());
+            let last_modified = headers
+                .get("last-modified")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.to_string());
 
             let bytes = response.bytes().await?.to_vec();
 
             if content_type.starts_with("text/html") {
-                tracing::trace!("classified as html (content-type: {content_type})");
                 Ok(Content::Html { bytes, final_url })
-            } else if is_feed_content_type(&content_type) {
-                tracing::trace!("classified as feed (content-type: {content_type})");
-                Ok(Content::Feed { bytes, final_url })
             } else {
-                // Unknown: assume feed, let parse fail if not
-                tracing::trace!("unknown content-type '{content_type}', assuming feed");
-                Ok(Content::Feed { bytes, final_url })
+                if !is_feed_content_type(&content_type) {
+                    tracing::debug!("unknown content-type '{content_type}', assuming feed");
+                }
+                Ok(Content::Feed {
+                    bytes,
+                    final_url,
+                    etag,
+                    last_modified,
+                })
             }
         }
 
-        _ => {
-            tracing::warn!("unexpected response status: {}", status);
-            Err(FeedError::UnexpectedResponse(
-                response.error_for_status().unwrap_err(),
-            ))
-        }
+        _ => Err(FeedError::UnexpectedResponse(
+            response.error_for_status().unwrap_err(),
+        )),
     }
 }
 

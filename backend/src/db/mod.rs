@@ -58,6 +58,13 @@ pub trait DataI: Send + Sync {
 
     async fn set_feed_sync_result(&self, feed_url: &str, result: &str) -> Result<(), sqlx::Error>;
 
+    async fn update_feed_headers(
+        &self,
+        feed_url: &str,
+        etag: Option<&str>,
+        last_modified: Option<&str>,
+    ) -> Result<(), sqlx::Error>;
+
     async fn get_one_feed_to_sync(&self, feed_id: &str) -> Result<Option<FeedToSync>, sqlx::Error>;
 
     async fn get_similar_named_feed(
@@ -283,4 +290,6 @@ pub struct FeedToSync {
     pub id: String,
     pub feed_url: String,
     pub site_url: Option<String>,
+    pub http_etag: Option<String>,
+    pub http_last_modified: Option<String>,
 }

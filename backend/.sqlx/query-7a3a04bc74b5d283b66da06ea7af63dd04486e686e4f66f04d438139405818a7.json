@@ -1,0 +1,16 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update feeds\n            set http_etag = $2,\n                http_last_modified = $3,\n                updated_at = now()\n            where feed_url = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Text",
+        "Text",
+        "Text"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "7a3a04bc74b5d283b66da06ea7af63dd04486e686e4f66f04d438139405818a7"
+}

@@ -7,8 +7,8 @@ use tokio::sync::watch;
 use crate::{
     db::Data,
     feed_loader::{
-        FeedResult, SYNC_RESULT_DB_ERROR, load_feed, sync_result_for_error,
-        sync_result_for_feed_result,
+        FeedResult, SYNC_RESULT_DB_ERROR, SYNC_RESULT_NOT_MODIFIED, load_feed,
+        sync_result_for_error, sync_result_for_feed_result,
     },
 };
 
@@ -44,19 +44,37 @@ pub async fn feed_sync_loop(
             .for_each_concurrent(MAX_SYNCING_FEEDS, |feed| {
                 let data = data.clone();
                 async move {
-                    sync_feed(&data, feed.feed_url).await;
+                    sync_feed(
+                        &data,
+                        feed.feed_url,
+                        feed.http_etag,
+                        feed.http_last_modified,
+                    )
+                    .await;
                 }
             })
             .await;
     }
 }
 
-#[tracing::instrument(name = "sync_feed", skip(data))]
-async fn sync_feed(data: &Data, url: String) {
-    let result = load_feed(&url).await;
+#[tracing::instrument(name = "sync_feed", skip(data, etag, last_modified))]
+async fn sync_feed(data: &Data, url: String, etag: Option<String>, last_modified: Option<String>) {
+    let result = load_feed(&url, etag, last_modified).await;
 
     match result {
         Ok(FeedResult::Loaded(loaded_feed)) => {
+            // Store the new cache headers
+            if let Err(e) = data
+                .update_feed_headers(
+                    &url,
+                    loaded_feed.http_etag.as_deref(),
+                    loaded_feed.http_last_modified.as_deref(),
+                )
+                .await
+            {
+                tracing::error!("error updating feed headers: {e:#}");
+            }
+
             let upsert_result = data
                 .upsert_feed_and_entries_and_icon(
                     &loaded_feed.feed,
@@ -72,9 +90,13 @@ async fn sync_feed(data: &Data, url: String) {
 
             tracing::info!("feed synced");
         }
+        Ok(FeedResult::NotModified) => {
+            tracing::info!("feed not modified, skipping");
+            set_sync_result(data, &url, SYNC_RESULT_NOT_MODIFIED).await;
+        }
         Ok(result) => {
             match result {
-                FeedResult::Loaded(_) => {}
+                FeedResult::Loaded(_) | FeedResult::NotModified => {}
                 _ => tracing::warn!("unexpected result syncing feed: {result:?}"),
             }
             set_sync_result(data, &url, sync_result_for_feed_result(&result)).await;

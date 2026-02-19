@@ -170,8 +170,19 @@ async fn run_import_job(data: crate::db::Data, job_id: String, feed_urls: Vec<St
                     error!("error updating opml import item: {err:#}");
                 }
 
-                match feed_loader::load_feed(&url).await {
+                match feed_loader::load_feed(&url, None, None).await {
                     Ok(FeedResult::Loaded(loaded_feed)) => {
+                        if let Err(err) = data
+                            .update_feed_headers(
+                                &url,
+                                loaded_feed.http_etag.as_deref(),
+                                loaded_feed.http_last_modified.as_deref(),
+                            )
+                            .await
+                        {
+                            error!("error updating feed headers: {err:#}");
+                        }
+
                         let upsert_res = data
                             .upsert_feed_and_entries_and_icon(
                                 &loaded_feed.feed,
@@ -208,6 +219,9 @@ async fn run_import_job(data: crate::db::Data, job_id: String, feed_urls: Vec<St
                             format!("discovered_multiple ({})", options.len()),
                         )
                         .await;
+                    }
+                    Ok(FeedResult::NotModified) => {
+                        mark_import_failure(&data, &job_id, &url, "not_modified".to_string()).await;
                     }
                     Ok(FeedResult::NotFound) => {
                         mark_import_failure(&data, &job_id, &url, "not_found".to_string()).await;

@@ -22,7 +22,9 @@ pub async fn new_feed(
     State(state): State<AppState>,
     Query(query): Query<AddFeedQuery>,
 ) -> Result<impl IntoResponse, ApiError> {
-    let res = feed_loader::load_feed(&query.url).await.unwrap();
+    let res = feed_loader::load_feed(&query.url, None, None)
+        .await
+        .unwrap();
     let force_similar = query.force_similar_feed.unwrap_or(false);
 
     let existing_feed = if !force_similar {
@@ -59,6 +61,18 @@ pub async fn new_feed(
                 )
                     .into_response()
             } else {
+                if let Err(e) = state
+                    .data
+                    .update_feed_headers(
+                        &loaded_feed.feed.feed_url,
+                        loaded_feed.http_etag.as_deref(),
+                        loaded_feed.http_last_modified.as_deref(),
+                    )
+                    .await
+                {
+                    tracing::error!("error updating feed headers: {e:#}");
+                }
+
                 state
                     .data
                     .upsert_feed_and_entries_and_icon(
@@ -71,6 +85,12 @@ pub async fn new_feed(
                 (StatusCode::OK, Json(json!({ "status": "feed_added" }))).into_response()
             }
         }
+
+        FeedResult::NotModified => (
+            StatusCode::NOT_MODIFIED,
+            Json(json!({ "status": "not_modified" })),
+        )
+            .into_response(),
 
         FeedResult::NotFound => (
             StatusCode::NOT_FOUND,

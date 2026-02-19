@@ -1,0 +1,46 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            update feeds f\n            set sync_started_at = now()\n            where id in (\n                select id\n                from feeds f\n                where f.last_sync_result is distinct from 'parse_error'\n                and (\n                    (f.sync_started_at is null and (f.last_synced_at < $1 or f.last_synced_at is null))\n                    or f.sync_started_at < now() - interval '5 minutes'\n                )\n                order by f.last_synced_at desc nulls first\n                for update skip locked\n            )\n            returning f.id, f.feed_url, f.site_url, f.http_etag, f.http_last_modified\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "feed_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "site_url",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "http_etag",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 4,
+        "name": "http_last_modified",
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Timestamptz"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "d74a414bddcf27d49ef5ecf2df34c2de75701f7015ca33aea6c0273ce44b8947"
+}

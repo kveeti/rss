@@ -599,7 +599,7 @@ impl DataI for PgData {
                 order by f.last_synced_at desc nulls first
                 for update skip locked
             )
-            returning f.id, f.feed_url, f.site_url
+            returning f.id, f.feed_url, f.site_url, f.http_etag, f.http_last_modified
             "#,
             last_synced_before
         )
@@ -627,6 +627,30 @@ impl DataI for PgData {
         Ok(())
     }
 
+    async fn update_feed_headers(
+        &self,
+        feed_url: &str,
+        etag: Option<&str>,
+        last_modified: Option<&str>,
+    ) -> Result<(), sqlx::Error> {
+        query!(
+            r#"
+            update feeds
+            set http_etag = $2,
+                http_last_modified = $3,
+                updated_at = now()
+            where feed_url = $1
+            "#,
+            feed_url,
+            etag,
+            last_modified
+        )
+        .execute(&self.pg_pool)
+        .await?;
+
+        Ok(())
+    }
+
     async fn get_one_feed_to_sync(&self, feed_id: &str) -> Result<Option<FeedToSync>, sqlx::Error> {
         let feed = sqlx::query_as!(
             FeedToSync,
@@ -639,7 +663,7 @@ impl DataI for PgData {
                 where id = $1
                 for update skip locked
             )
-            returning f.id, f.feed_url, f.site_url
+            returning f.id, f.feed_url, f.site_url, f.http_etag, f.http_last_modified
             "#,
             feed_id
         )
@@ -658,7 +682,7 @@ impl DataI for PgData {
         let feed = sqlx::query_as!(
             FeedToSync,
             r#"
-            select f.id, f.feed_url, f.site_url
+            select f.id, f.feed_url, f.site_url, f.http_etag, f.http_last_modified
             from feeds f
             where f.feed_url like $1
             limit 1
