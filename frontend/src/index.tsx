@@ -147,7 +147,7 @@ export const routes: RouteDefinition[] = [
 	},
 	{
 		path: "**",
-		component: () => <Navigate href="/feeds" />,
+		component: () => <Navigate href="/unread" />,
 	},
 ];
 
