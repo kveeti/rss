@@ -17,6 +17,7 @@ import { prefetchFeedsPage } from "./pages/feeds-page.data";
 import { preloadsNewFeedPage } from "./pages/new-feed-page.data";
 import { prefetchUnreadPage } from "./pages/unread-page.data";
 import "./styles.css";
+import { createKeyboardHandler } from "./utils/keyboard";
 
 const root = document.getElementById("root");
 
@@ -162,7 +163,7 @@ render(
 					<>
 						{props.children}
 						<Show when={showUpdatePopup()}>
-							<div class="fixed right-0 bottom-0 z-50 p-4">
+							<div class="pwa:bottom-26 fixed right-0 bottom-13 z-50 p-4 sm:bottom-0">
 								<div class="bg-gray-2 border-gray-a5 border p-3">
 									<p class="text-gray-12">
 										A new version is available. Click refresh to update
