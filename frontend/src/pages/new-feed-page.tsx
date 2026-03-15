@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/solid-query";
 import { For, Show, createSignal } from "solid-js";
 
 import { Button, buttonStyles } from "../components/button";
+import { IconClipboard } from "../components/icons/clipboard";
 import { IconInfo } from "../components/icons/info";
 import { Input } from "../components/input";
 import { OpmlImportSection } from "../components/opml-import";
@@ -131,7 +132,29 @@ export default function NewFeedPage() {
 
 					<form class="space-y-4" onSubmit={onSubmit} ref={formRef}>
 						<div class="flex flex-col gap-2">
-							<Input label="URL" type="text" name="url" ref={inputRef} required />
+							<div class="flex items-end gap-2">
+								<div class="flex-1">
+									<Input
+										label="URL"
+										type="text"
+										name="url"
+										ref={inputRef}
+										required
+									/>
+								</div>
+								<Button
+									type="button"
+									variant="outline"
+									size="icon"
+									title="Paste from clipboard"
+									onClick={async () => {
+										const text = await navigator.clipboard.readText();
+										inputRef.value = text;
+									}}
+								>
+									<IconClipboard />
+								</Button>
+							</div>
 						</div>
 
 						<div class="flex justify-end">

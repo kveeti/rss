@@ -1,6 +1,6 @@
 import { JSX } from "solid-js";
 
-const baseInputStyles = "focus border border-gray-a6 p-2 sm:text-sm text-base";
+const baseInputStyles = "focus border border-gray-a6 h-10 px-2 sm:text-sm text-base";
 
 export function Input(props: JSX.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
 	if (props.class) {

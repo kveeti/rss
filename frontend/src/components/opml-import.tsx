@@ -173,6 +173,7 @@ export function OpmlImportSection() {
 					type="file"
 					name="opml"
 					accept=".opml,.xml,text/xml"
+					class="pt-2.25"
 					ref={importInputRef}
 					required
 				/>
