@@ -18,7 +18,7 @@ pub async fn feed_sync_loop(
     data: Data,
     mut shutdown_rx: watch::Receiver<bool>,
 ) -> anyhow::Result<()> {
-    let mut ticker = tokio::time::interval(Duration::from_secs(60));
+    let mut ticker = tokio::time::interval(Duration::from_hours(1));
 
     loop {
         tokio::select! {
