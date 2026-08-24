@@ -1,3 +1,15 @@
+Simple feed of RSS/Atom feeds +
+- Text search over entry titles and URLs
+- Supports comments link when given, e.g. on Hackernews
+- OPML import/export
+- [More screenshots](#more-screenshots)
+
+<table>
+  <tr>
+    <td><img src="https://github.com/kveeti/rss/raw/main/.readme_assets/unread-light.webp" alt="Light theme unread page showing unread Hackernews and Lobste.rs posts" width="460"></td>
+    <td><img src="https://github.com/kveeti/rss/raw/main/.readme_assets/unread-dark.webp" alt="Dark theme unread page showing unread Hackernews and Lobste.rs posts" width="460"></td>
+  </tr>
+</table>
 
 ### Running locally
 
@@ -41,3 +53,20 @@ cd frontend && pnpm install && cd -
 # run backend and frontend
 make dev
 ```
+
+### More screenshots
+
+<table>
+  <tr><th align="left">Feeds page</th></tr>
+  <tr><td><img src="https://github.com/kveeti/rss/raw/main/.readme_assets/feeds.webp" alt="Feeds page showing Hackernews and Lobste.rs as added feeds" width="460"></td></tr>
+</table>
+
+<table>
+  <tr><th align="left">Entries page with search</th></tr>
+  <tr><td><img src="https://github.com/kveeti/rss/raw/main/.readme_assets/entries.webp" alt="Entries page showing the search input, filters and results" width="460"></td></tr>
+</table>
+
+<table>
+  <tr><th align="left">New feed page</th></tr>
+  <tr><td><img src="https://github.com/kveeti/rss/raw/main/.readme_assets/new-feed.webp" alt="New feed page showing the feed form" width="460"></td></tr>
+</table>
