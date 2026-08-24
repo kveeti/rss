@@ -1,7 +1,9 @@
-# Export variables from ./.env if it exists
+# Export variables from ./.env if it exists. The flake dev shell already loads it.
+ifndef IN_NIX_SHELL
 ifneq (,$(wildcard ./.env))
 	include .env
 	export
+endif
 endif
 
 .PHONY: all

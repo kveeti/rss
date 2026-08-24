@@ -15,6 +15,13 @@ Simple feed of RSS/Atom feeds +
 
 Example env vars in [`.env.example`](/.env.example). Both frontend and backend dev servers can read variables from .env files (frontend/.env and backend/.env)
 
+With Nix:
+- Enter the dev shell. It starts Postgres on a free port and sets `DATABASE_URL`
+    ```bash
+    nix develop
+    ```
+- The backend runs on port `8000` and the frontend on port `3000`
+
 Backend:
 - Db (postgres): e.g. with docker compose [`compose.yml`](/compose.yml)
     ```bash

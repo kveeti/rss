@@ -95,6 +95,63 @@
               rustup
               postgresql_18
             ];
+
+            postgresConf = pkgs.writeText "postgresql.conf" ''
+              log_min_messages = warning
+              log_min_error_statement = error
+              log_min_duration_statement = 100
+              log_connections = on
+              log_disconnections = on
+              log_duration = on
+              log_timezone = 'UTC'
+              log_statement = 'all'
+              log_directory = 'pg_log'
+              log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+              logging_collector = on
+            '';
+
+            shellHook = ''
+              if [ -f .env ]; then
+                set -a
+                source .env
+                set +a
+              fi
+
+              free_port() {
+                local port="$1"
+                shift
+                while (echo >/dev/tcp/localhost/"$port") 2>/dev/null || [[ " $* " == *" $port "* ]]; do
+                  port=$((port + 1))
+                done
+                echo "$port"
+              }
+
+              export PGDATA="$PWD/.pg"
+              export HOST="''${HOST:-0.0.0.0:8000}"
+
+              if pg_ctl -D "$PGDATA" status >/dev/null 2>&1; then
+                export PGPORT="$(awk 'NR == 4 { print; exit }' "$PGDATA/postmaster.pid")"
+              else
+                echo "Setting up ${pkgs.postgresql_18.name}"
+                export PGPORT="$(free_port "''${PGPORT:-5555}" 8000 3000)"
+
+                if [ ! -f "$PGDATA/PG_VERSION" ]; then
+                  echo "Initializing database..."
+                  initdb -D "$PGDATA" -U postgres
+                  cat "$postgresConf" >> "$PGDATA/postgresql.conf"
+                fi
+
+                pg_ctl -D "$PGDATA" -o "-k $PGDATA" start
+              fi
+
+              export PGHOST="$PGDATA"
+              export DATABASE_URL="postgres://postgres:postgres@localhost:$PGPORT/postgres"
+
+              echo "Ports: backend 8000, frontend 3000, Postgres $PGPORT"
+
+              alias fin="pg_ctl -D $PGDATA stop && exit"
+              alias pg="psql -U postgres -d postgres"
+            '';
           };
         }
       );
