@@ -8,9 +8,13 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 env:
   DOCKERHUB_USERNAME: veetik
   DOCKERHUB_IMAGE: veetik/rss
+  IMAGE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
 
 jobs:
   checks:
@@ -22,7 +26,8 @@ jobs:
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.IMAGE_SHA }}
+          persist-credentials: false
       - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # 1.15.2
         with:
           components: rustfmt
@@ -31,17 +36,16 @@ jobs:
         run: cargo fmt --check
 
 
-  amd64_build_and_push_docker_image:
-    name: build and push docker image (amd64)
+  amd64_build:
+    name: build docker image (amd64)
     runs-on: ubuntu-24.04
     needs: checks
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    outputs:
-      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.IMAGE_SHA }}
+          persist-credentials: false
 
       - name: "frontend: setup pnpm"
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # 4.2.0
@@ -88,34 +92,35 @@ jobs:
       - name: "docker: setup buildx"
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # 3.12.0
 
-      - name: "docker: login to dockerhub"
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # 3.7.0
-        with:
-          username: ${{ env.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "docker: build and push image"
-        id: build
+      - name: "docker: build and export image"
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # 6.18.0
         with:
-          push: true
           context: .
           platforms: linux/amd64
+          tags: rss-build:amd64
           provenance: false
-          outputs: type=image,name=${{ env.DOCKERHUB_IMAGE }},push-by-digest=true,name-canonical=true
+          outputs: type=docker,dest=${{ runner.temp }}/rss-amd64.tar
+
+      - name: "artifact: upload image"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 4.6.2
+        with:
+          name: rss-amd64
+          path: ${{ runner.temp }}/rss-amd64.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
 
 
-  arm64_build_and_push_docker_image:
-    name: build and push docker image (arm64)
+  arm64_build:
+    name: build docker image (arm64)
     runs-on: ubuntu-24.04-arm
     needs: checks
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    outputs:
-      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ env.IMAGE_SHA }}
+          persist-credentials: false
 
       - name: "frontend: setup pnpm"
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # 4.2.0
@@ -164,31 +169,53 @@ jobs:
       - name: "docker: setup buildx"
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # 3.12.0
 
-      - name: "docker: login to dockerhub"
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # 3.7.0
-        with:
-          username: ${{ env.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: "docker: build and push image"
-        id: build
+      - name: "docker: build and export image"
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # 6.18.0
         with:
-          push: true
           context: .
           platforms: linux/arm64
+          tags: rss-build:arm64
           provenance: false
-          outputs: type=image,name=${{ env.DOCKERHUB_IMAGE }},push-by-digest=true,name-canonical=true
+          outputs: type=docker,dest=${{ runner.temp }}/rss-arm64.tar
 
-  merge:
-    name: create multi-arch manifest
+      - name: "artifact: upload image"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # 4.6.2
+        with:
+          name: rss-arm64
+          path: ${{ runner.temp }}/rss-arm64.tar
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  publish:
+    name: publish multi-arch image
     runs-on: ubuntu-24.04
     needs:
-      - amd64_build_and_push_docker_image
-      - arm64_build_and_push_docker_image
+      - amd64_build
+      - arm64_build
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - name: "docker: setup buildx"
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # 3.12.0
+
+      - name: "artifact: download amd64 image"
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # 4.3.0
+        with:
+          name: rss-amd64
+          path: ${{ runner.temp }}/images/amd64
+
+      - name: "artifact: download arm64 image"
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # 4.3.0
+        with:
+          name: rss-arm64
+          path: ${{ runner.temp }}/images/arm64
+
+      - name: "docker: load images"
+        run: |
+          docker load --input "$RUNNER_TEMP/images/amd64/rss-amd64.tar"
+          docker tag rss-build:amd64 "$DOCKERHUB_IMAGE:$IMAGE_SHA-amd64"
+          docker load --input "$RUNNER_TEMP/images/arm64/rss-arm64.tar"
+          docker tag rss-build:arm64 "$DOCKERHUB_IMAGE:$IMAGE_SHA-arm64"
 
       - name: "docker: login to dockerhub"
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # 3.7.0
@@ -207,12 +234,18 @@ jobs:
             type=ref,event=pr
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: "docker: create manifest and push"
+      - name: "docker: push images and manifest"
         run: |
-          docker buildx imagetools create \
-            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-            ${{ env.DOCKERHUB_IMAGE }}@${{ needs.amd64_build_and_push_docker_image.outputs.digest }} \
-            ${{ env.DOCKERHUB_IMAGE }}@${{ needs.arm64_build_and_push_docker_image.outputs.digest }}
+          docker push "$DOCKERHUB_IMAGE:$IMAGE_SHA-amd64"
+          docker push "$DOCKERHUB_IMAGE:$IMAGE_SHA-arm64"
+          mapfile -t tags < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_OUTPUT_JSON")
+          tag_args=()
+          for tag in "${tags[@]}"; do
+            tag_args+=(--tag "$tag")
+          done
+          docker buildx imagetools create "${tag_args[@]}" \
+            "$DOCKERHUB_IMAGE:$IMAGE_SHA-amd64" \
+            "$DOCKERHUB_IMAGE:$IMAGE_SHA-arm64"
 
       - name: "output: image tags"
         run: |
