@@ -4,15 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
   pull_request:
     branches:
       - main
-    paths:
-      - 'backend/**'
-      - 'frontend/**'
 
 env:
   DOCKERHUB_USERNAME: veetik
@@ -27,6 +21,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions-rust-lang/setup-rust-toolchain@1780873c7b576612439a134613cc4cc74ce5538c # 1.15.2
         with:
           components: rustfmt
@@ -39,10 +35,13 @@ jobs:
     name: build and push docker image (amd64)
     runs-on: ubuntu-24.04
     needs: checks
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: "frontend: setup pnpm"
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # 4.2.0
@@ -110,10 +109,13 @@ jobs:
     name: build and push docker image (arm64)
     runs-on: ubuntu-24.04-arm
     needs: checks
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     outputs:
       digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # 6.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: "frontend: setup pnpm"
         uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # 4.2.0
@@ -200,6 +202,7 @@ jobs:
         with:
           images: ${{ env.DOCKERHUB_IMAGE }}
           tags: |
+            type=raw,value=${{ github.event.pull_request.head.sha || github.sha }}
             type=sha
             type=ref,event=pr
             type=raw,value=latest,enable={{is_default_branch}}
