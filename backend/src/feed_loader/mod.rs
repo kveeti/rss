@@ -63,7 +63,7 @@ pub async fn load_feed(
         Ok(FeedResult::Loaded(loaded)) => {
             tracing::info!("loaded feed: {}", loaded.feed.title)
         }
-        Ok(FeedResult::NotModified) => tracing::info!("feed not modified"),
+        Ok(FeedResult::NotModified) => {}
         Ok(FeedResult::NeedsChoice(urls)) => {
             tracing::info!("feed discovery found {} options", urls.len())
         }

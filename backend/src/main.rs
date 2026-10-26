@@ -10,13 +10,9 @@ pub mod feed_loader;
 
 #[tokio::main]
 pub async fn main() {
-    let crate_name = env!("CARGO_CRATE_NAME");
-
     tracing_subscriber::registry()
-        .with(EnvFilter::from(format!(
-            "{crate_name}=debug,tower_http=info,sqlx=info,axum::rejection=trace"
-        )))
-        .with(tracing_subscriber::fmt::layer())
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with(tracing_subscriber::fmt::layer().json())
         .init();
 
     let config = Config::new().expect("valid config");

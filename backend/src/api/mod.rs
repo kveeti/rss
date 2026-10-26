@@ -1,8 +1,14 @@
 use axum::{
     Router,
+    body::Body,
+    extract::State,
+    http::{Request, StatusCode},
     routing::{get, post},
 };
+use std::time::Duration;
 use tokio::{net::TcpListener, sync::watch};
+use tower_http::trace::{DefaultOnResponse, TraceLayer};
+use tracing::Level;
 
 use crate::db::Data;
 
@@ -50,15 +56,27 @@ pub async fn start_api(data: Data, config: ApiConfig, mut shutdown_rx: watch::Re
         .route(
             "/entries/{id}/read",
             post(handlers::entries::update_entry_read),
+        );
+
+    let mut app = Router::new()
+        .nest(
+            "/api",
+            Router::new()
+                .nest("/v1", v1_routes)
+                .layer(
+                    TraceLayer::new_for_http()
+                        .make_span_with(|request: &Request<Body>| {
+                            tracing::info_span!(
+                                "request",
+                                method = %request.method(),
+                                path = %request.uri().path(),
+                            )
+                        })
+                        .on_response(DefaultOnResponse::new().level(Level::INFO)),
+                )
+                .route("/health", get(health)),
         )
         .with_state(state);
-
-    let mut app = Router::new().nest(
-        "/api",
-        Router::new()
-            .nest("/v1", v1_routes)
-            .route("/health", get(health)),
-    );
 
     if let Some(dir) = &config.frontend_dir {
         tracing::info!("serving frontend from {dir}");
@@ -79,6 +97,9 @@ pub async fn start_api(data: Data, config: ApiConfig, mut shutdown_rx: watch::Re
         .expect("axum successful serve");
 }
 
-async fn health() -> &'static str {
-    "OK"
+async fn health(State(state): State<AppState>) -> StatusCode {
+    match tokio::time::timeout(Duration::from_secs(2), state.data.ping()).await {
+        Ok(Ok(())) => StatusCode::OK,
+        _ => StatusCode::SERVICE_UNAVAILABLE,
+    }
 }

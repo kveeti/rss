@@ -34,11 +34,10 @@ pub async fn feed_sync_loop(
             .await?;
 
         if feeds.len() == 0 {
-            tracing::info!("no feeds to sync");
             continue;
         }
 
-        tracing::info!("syncing {} feeds", feeds.len());
+        tracing::debug!("syncing {} feeds", feeds.len());
 
         stream::iter(feeds)
             .for_each_concurrent(MAX_SYNCING_FEEDS, |feed| {
@@ -91,7 +90,6 @@ async fn sync_feed(data: &Data, url: String, etag: Option<String>, last_modified
             tracing::info!("feed synced");
         }
         Ok(FeedResult::NotModified) => {
-            tracing::info!("feed not modified, skipping");
             set_sync_result(data, &url, SYNC_RESULT_NOT_MODIFIED).await;
         }
         Ok(result) => {

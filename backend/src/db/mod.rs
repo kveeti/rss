@@ -13,6 +13,8 @@ mod tests;
 
 #[async_trait]
 pub trait DataI: Send + Sync {
+    async fn ping(&self) -> Result<(), sqlx::Error>;
+
     async fn upsert_feed_and_entries_and_icon(
         &self,
         feed: &NewFeed,

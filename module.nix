@@ -16,9 +16,9 @@ in
     };
 
     environmentFile = lib.mkOption {
-      type = lib.types.nullOr lib.types.path;
+      type = lib.types.nullOr lib.types.str;
       default = null;
-      description = "File containing environment variables to pass to the service";
+      description = "Runtime path to an environment file containing service configuration and secrets";
     };
   };
 
@@ -42,18 +42,19 @@ in
         Group = "rss";
 
         StateDirectory = "rss";
+        StateDirectoryMode = "0700";
         WorkingDirectory = dataDir;
 
         EnvironmentFile = lib.mkIf (cfg.environmentFile != null) cfg.environmentFile;
 
-        # Hardening
         CapabilityBoundingSet = [ "" ];
-        DeviceAllow = [ "/dev/stdin" "/dev/urandom" ];
-        DevicePolicy = "strict";
+        DeviceAllow = [ "" ];
+        LimitCORE = 0;
         LockPersonality = true;
         MemoryDenyWriteExecute = true;
         NoNewPrivileges = true;
         PrivateDevices = true;
+        PrivateMounts = true;
         PrivateTmp = true;
         PrivateUsers = true;
         ProcSubset = "pid";
@@ -73,7 +74,7 @@ in
         RestrictSUIDSGID = true;
         SystemCallArchitectures = "native";
         SystemCallFilter = [ "@system-service" "~@privileged" "~@resources" ];
-        UMask = "0027";
+        UMask = "0077";
       };
     };
   };

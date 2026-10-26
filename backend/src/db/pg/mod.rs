@@ -48,6 +48,11 @@ pub(super) async fn new_pg_data(database_url: &str) -> Result<Data> {
 
 #[async_trait]
 impl DataI for PgData {
+    async fn ping(&self) -> Result<(), sqlx::Error> {
+        sqlx::query("SELECT 1").execute(&self.pg_pool).await?;
+        Ok(())
+    }
+
     async fn upsert_feed_and_entries_and_icon(
         &self,
         feed: &NewFeed,
